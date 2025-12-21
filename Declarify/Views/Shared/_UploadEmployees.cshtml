@@ -1,0 +1,135 @@
+﻿   <!-- Add Employee Modal with Toggle -->
+<div class="modal-overlay" id="addEmployeeModal">
+    <div class="modal-container">
+        <div class="modal-header">
+            <h2>Add Employees</h2>
+            <button class="modal-close" onclick="closeModal()">&times;</button>
+        </div>
+
+        <!-- Toggle Switcher -->
+        <div class="modal-toggle">
+            <button class="toggle-btn active" id="singleBtn" onclick="switchMode('single')">
+                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
+                    <circle cx="8.5" cy="7" r="4" />
+                    <line x1="20" y1="8" x2="20" y2="14" />
+                    <line x1="23" y1="11" x2="17" y2="11" />
+                </svg>
+                Single Employee
+            </button>
+            <button class="toggle-btn" id="bulkBtn" onclick="switchMode('bulk')">
+                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                    <line x1="12" y1="18" x2="12" y2="12" />
+                    <line x1="9" y1="15" x2="15" y2="15" />
+                </svg>
+                Bulk Import (CSV)
+            </button>
+        </div>
+
+        <!-- Single Employee Form -->
+        <form asp-action="CreateEmployee" asp-controller="Home" method="post" class="modal-form" id="singleForm">
+            @Html.AntiForgeryToken()
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Employee Number</label>
+                    <input type="text" name="EmployeeNumber" required placeholder="EMP001" />
+                </div>
+
+                <div class="form-group">
+                    <label>Full Name</label>
+                    <input type="text" name="Full_Name" required placeholder="John" />
+                </div>
+
+                <div class="form-group">
+                    <label>Surname</label>
+                    <input type="text" name="Surname_Name" required placeholder="Doe" />
+                </div>
+
+                <div class="form-group">
+                    <label>Email Address</label>
+                    <input type="email" name="Email" required placeholder="john.doe@company.org" />
+                </div>
+
+                <div class="form-group">
+                    <label>Position</label>
+                    <input type="text" name="Position" required placeholder="Senior Manager" />
+                </div>
+
+                <div class="form-group">
+                    <label>Department</label>
+                    <input type="text" name="Department" required placeholder="Finance" />
+                </div>
+
+                <div class="form-group full-width">
+                    <label>Manager ID (Optional)</label>
+                    <input type="number" name="ManagerId" placeholder="Leave empty if no manager" />
+                </div>
+            </div>
+
+            <div class="modal-actions">
+                <button type="button" class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path d="M12 4v16m8-8H4" />
+                    </svg>
+                    Add Employee
+                </button>
+            </div>
+        </form>
+
+        <!-- Bulk Import Form -->
+        <form asp-action="ImportEmployees" asp-controller="Home" method="post" enctype="multipart/form-data" class="modal-form" id="bulkForm" style="display: none;">
+            @Html.AntiForgeryToken()
+
+            <div class="upload-area">
+                <div class="upload-icon">📤</div>
+                <h3>Upload CSV File</h3>
+                <p>Drag and drop your CSV file here or click to browse</p>
+                <input type="file" name="csvFile" id="csvFileInput" accept=".csv" required hidden />
+                <button type="button" class="btn btn-ghost" onclick="document.getElementById('csvFileInput').click()">
+                    Choose File
+                </button>
+                <div class="file-preview" id="filePreview"></div>
+            </div>
+
+            <div class="csv-info">
+                <div class="info-header">
+                    <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="16" x2="12" y2="12" />
+                        <line x1="12" y1="8" x2="12.01" y2="8" />
+                    </svg>
+                    <span>CSV Format Requirements</span>
+                </div>
+                <ul>
+                    <li><strong>Columns:</strong> EmployeeNumber, Full_Name, Email_Address, Position, Department, ManagerId</li>
+                    <li><strong>Example:</strong> EMP001, John Doe, john.doe@company.org, Senior Manager, Finance, </li>
+                    <li>Leave ManagerId empty if employee has no manager</li>
+                </ul>
+                <a href="@Url.Action("DownloadEmployeeTemplate", "Home")" class="download-template">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                        <polyline points="7 10 12 15 17 10" />
+                        <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                    Download Template
+                </a>
+            </div>
+
+            <div class="modal-actions">
+                <button type="button" class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary" id="uploadBtn" disabled>
+                    <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                        <polyline points="17 8 12 3 7 8" />
+                        <line x1="12" y1="3" x2="12" y2="15" />
+                    </svg>
+                    Import Employees
+                </button>
+            </div>
+        </form>
+    </div>
+</div>

@@ -1,0 +1,404 @@
+﻿@model Declarify.Models.ViewModels.DashboardViewModel
+
+@{
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Declarify</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="~/css/admindashboardcss.css" rel="stylesheet" />
+</head>
+<body>
+    <header class="modern-header">
+        <div class="header-container">
+            <!-- Left Section: Branding & Company -->
+            <div class="header-left">
+                <div class="brand-section">
+                    <div class="brand-logo">
+                        <div class="logo-circle">
+                            <!-- Logo rendered with CSS -->
+                        </div>
+                        <div class="brand-text">
+                            <div class="brand-name">Declar</div>
+                            <div class="brand-tagline">Compliance Hub</div>
+                        </div>
+                    </div>
+                    <div class="vertical-divider"></div>
+                    <div class="company-badge">
+                        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+                            <polyline points="9 22 9 12 15 12 15 22" />
+                        </svg>
+                        <span>CPT</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Center Section: Status Indicator -->
+            <div class="header-center">
+                <div class="dashboard-breadcrumb">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <rect x="3" y="3" width="7" height="7" />
+                        <rect x="14" y="3" width="7" height="7" />
+                        <rect x="14" y="14" width="7" height="7" />
+                        <rect x="3" y="14" width="7" height="7" />
+                    </svg>
+                    <span>Admin Dashboard</span>
+                </div>
+            </div>
+
+            <!-- Right Section: Employee Info -->
+            <div class="header-right">
+                <button class="employee-trigger">
+                    <div class="employee-avatar">AM</div>
+                    <div class="employee-info-compact">
+                        <div class="employee-name">Alice Morgan</div>
+                        <div class="employee-role">
+                            <span class="role-badge">Admin</span>
+                            <span class="employee-id">#A-001</span>
+                        </div>
+                    </div>
+                    <svg class="dropdown-arrow" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <polyline points="6 9 12 15 18 9" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </header>
+
+
+    <main>
+        <!-- Hero Banner -->
+        <div class="hero-banner">
+            <div class="hero-content">
+                <h1>Welcome back, <span>Admin</span></h1>
+                <p>Public Sector Integrity. Clarified. Monitor compliance, track submissions, and drive accountability across your organization.</p>
+                <div class="hero-actions">
+                    <button class="btn btn-primary">
+                        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path d="M12 4v16m8-8H4" />
+                        </svg>
+                        Bulk Request
+                    </button>
+                    <button class="btn btn-ghost">
+                        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        View Reports
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Alerts -->
+        @if (Model.CriticalCreditWarning)
+        {
+            <div class="alert alert-danger">
+                <div class="alert-icon">🚨</div>
+                <div class="alert-content">
+                    <h3>Critical: Credit Balance Low</h3>
+                    <p>You have <strong>@Model.CreditBalance credits</strong> remaining. Purchase credits immediately to avoid service interruption.</p>
+                </div>
+            </div>
+        }
+        else if (Model.LowCreditWarning)
+        {
+            <div class="alert alert-warning">
+                <div class="alert-icon">⚠️</div>
+                <div class="alert-content">
+                    <h3>Low Credit Balance</h3>
+                    <p>You have <strong>@Model.CreditBalance credits</strong> remaining. Consider purchasing more credits soon.</p>
+                </div>
+            </div>
+        }
+
+        @if (Model.DaysUntilLicenseExpiry <= 30)
+        {
+            <div class="alert alert-@(Model.DaysUntilLicenseExpiry <= 7 ? "danger" : "warning")">
+                <div class="alert-icon">🔔</div>
+                <div class="alert-content">
+                    <h3>License @(Model.DaysUntilLicenseExpiry <= 7 ? "Expiring Very Soon" : "Expiring Soon")</h3>
+                    <p>Your annual license expires in <strong>@Model.DaysUntilLicenseExpiry days</strong>. Renew now to maintain access.</p>
+                </div>
+            </div>
+        }
+
+        <!-- Key Metrics -->
+        <div class="stats-grid">
+            <div class="stat-card success @(Model.CompliancePercentage >= Model.GoalComplianceRate ? "success" : "warning")">
+                <div class="stat-header">
+                    <div class="stat-icon">✓</div>
+                </div>
+                <div class="stat-label">Compliance Rate</div>
+                <div class="stat-value">@Model.CompliancePercentage.ToString("F1")%</div>
+                <div class="stat-progress">
+                    <div class="stat-progress-bar" style="width: @Model.CompliancePercentage%"></div>
+                </div>
+                <p style="font-size: 0.875rem; color: var(--color-text-muted); margin-top: 0.5rem;">
+                    Goal: @Model.GoalComplianceRate% |
+                    @if (Model.IsGoalAchieved)
+                    {
+                        <span class="status-badge success">Goal Achieved! 🎉</span>
+                    }
+                    else
+                    {
+                        <span class="status-badge warning">@((Model.GoalComplianceRate - Model.CompliancePercentage).ToString("F1"))% to go</span>
+                    }
+                </p>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-header">
+                    <div class="stat-icon">👥</div>
+                </div>
+                <div class="stat-label">Total Employees</div>
+                <div class="stat-value">@Model.TotalEmployees.ToString("N0")</div>
+                <p style="font-size: 0.875rem; color: var(--color-text-muted); margin-top: 0.5rem;">
+                    <span class="status-badge success">@Model.SubmittedCount Compliant</span>
+                </p>
+            </div>
+
+            <div class="stat-card @(Model.OverdueCount > 0 ? "danger" : "success")">
+                <div class="stat-header">
+                    <div class="stat-icon">@(Model.OverdueCount > 0 ? "⚠" : "✓")</div>
+                </div>
+                <div class="stat-label">Overdue</div>
+                <div class="stat-value">@Model.OverdueCount</div>
+                <p style="font-size: 0.875rem; color: var(--color-text-muted); margin-top: 0.5rem;">
+                    @if (Model.OverdueCount > 0)
+                    {
+                        <span>Requires immediate action</span>
+                    }
+                    else
+                    {
+                        <span class="status-badge success">All on track!</span>
+                    }
+                </p>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-header">
+                    <div class="stat-icon">💳</div>
+                </div>
+                <div class="stat-label">Credit Balance</div>
+                <div class="stat-value">@Model.CreditBalance.ToString("N0")</div>
+                <p style="font-size: 0.875rem; color: var(--color-text-muted); margin-top: 0.5rem;">
+                    @if (Model.ExpiringCredits.Any())
+                    {
+                        <span class="status-badge warning">@Model.ExpiringCredits expiring soon</span>
+                    }
+                    else
+                    {
+                        <span class="status-badge success">Healthy</span>
+                    }
+                </p>
+            </div>
+        </div>
+
+        <!-- Department Breakdown -->
+        <div class="section">
+            <div class="section-header">
+                <h2 class="section-title">Department Compliance Breakdown</h2>
+                <button class="btn btn-ghost" style="padding: 0.625rem 1.5rem;">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                    Export Report
+                </button>
+            </div>
+            <div class="department-list">
+                @foreach (var dept in Model.DepartmentBreakdown.Values.OrderBy(d => d.Department))
+                {
+                    var complianceRate = dept.CompliancePercentage;
+                    var statusClass = complianceRate >= 95 ? "success" : complianceRate >= 85 ? "warning" : "danger"; 
+                  
+                    <div class="department-item">
+                        <div class="department-header">
+                            <span class="department-name">@dept.Department</span>
+                            <span class="status-badge @statusClass">@complianceRate.ToString("F1")% Compliant</span>
+                        </div>
+                        <div class="department-stats">
+                            <div class="department-stat">
+                                <span style="color: var(--color-success);">●</span>
+                                <span>@dept.SubmittedCount Submitted</span>
+                            </div>
+                            <div class="department-stat">
+                                <span style="color: var(--color-warning);">●</span>
+                                <span>@dept.OutstandingCount Outstanding</span>
+                            </div>
+                            <div class="department-stat">
+                                <span style="color: var(--color-danger);">●</span>
+                                <span>@dept.OverdueCount Overdue</span>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="section">
+            <div class="section-header">
+                <h2 class="section-title">Quick Actions</h2>
+            </div>
+            <div class="quick-actions">
+                <div class="action-card" onclick="window.location.href='@Url.Action("Create", "Templates")'">
+                    <div class="action-card-icon">📝</div>
+                    <h3>Create Template</h3>
+                    <p>Design custom DOI forms with flexible sections and verification rules</p>
+                </div>
+                <div class="action-card" onclick="openModal()">
+                    <div class="action-card-icon">📤</div>
+                    <h3>Import Employees</h3>
+                    <p>Bulk upload employee data via CSV spreadsheet with validation</p>
+
+                </div>
+                <div class="action-card" onclick="window.location.href='@Url.Action("Verify", "Verification")'">
+                    <div class="action-card-icon">🔍</div>
+                    <h3>Run Verification</h3>
+                    <p>Execute CIPC & credit checks on submitted declarations</p>
+
+                </div>
+                <div class="action-card" onclick="window.location.href='@Url.Action("Purchase", "Credits")'">
+                    <div class="action-card-icon">💎</div>
+                    <h3>Purchase Credits</h3>
+                    <p>Add verification and submission credits</p>
+                </div>
+            </div>
+        </div>
+
+       
+    </main>
+
+    @Html.Partial("_UploadEmployees")
+    <script>
+        // Animate progress bars on load
+        window.addEventListener('load', () => {
+            const progressBars = document.querySelectorAll('.stat-progress-bar');
+            progressBars.forEach(bar => {
+                const width = bar.style.width;
+                bar.style.width = '0';
+                setTimeout(() => {
+                    bar.style.width = width;
+                }, 100);
+            });
+        });
+
+                // Modal Functions
+        function openModal() {
+            const modal = document.getElementById('addEmployeeModal');
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('addEmployeeModal');
+            modal.classList.remove('active');
+            document.body.style.overflow = '';
+
+            // Reset forms
+            document.getElementById('singleForm').reset();
+            document.getElementById('bulkForm').reset();
+            document.getElementById('filePreview').classList.remove('active');
+            document.getElementById('uploadBtn').disabled = true;
+        }
+
+        // Toggle between Single and Bulk mode
+        function switchMode(mode) {
+            const singleBtn = document.getElementById('singleBtn');
+            const bulkBtn = document.getElementById('bulkBtn');
+            const singleForm = document.getElementById('singleForm');
+            const bulkForm = document.getElementById('bulkForm');
+
+            if (mode === 'single') {
+                singleBtn.classList.add('active');
+                bulkBtn.classList.remove('active');
+                singleForm.style.display = 'block';
+                bulkForm.style.display = 'none';
+            } else {
+                bulkBtn.classList.add('active');
+                singleBtn.classList.remove('active');
+                bulkForm.style.display = 'block';
+                singleForm.style.display = 'none';
+            }
+        }
+
+        // File upload handling
+        const csvFileInput = document.getElementById('csvFileInput');
+        const filePreview = document.getElementById('filePreview');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const uploadArea = document.querySelector('.upload-area');
+
+        csvFileInput?.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                displayFilePreview(file);
+            }
+        });
+
+        function displayFilePreview(file) {
+            const sizeInMB = (file.size / 1024 / 1024).toFixed(2);
+
+            filePreview.innerHTML = `
+                <div class="file-preview-icon">📄</div>
+                <div class="file-preview-info">
+                    <div class="file-preview-name">${file.name}</div>
+                    <div class="file-preview-size">${sizeInMB} MB</div>
+                </div>
+                <button type="button" class="file-preview-remove" onclick="removeFile()">×</button>
+            `;
+
+            filePreview.classList.add('active');
+            uploadBtn.disabled = false;
+        }
+
+        function removeFile() {
+            csvFileInput.value = '';
+            filePreview.classList.remove('active');
+            uploadBtn.disabled = true;
+        }
+
+        // Drag and drop functionality
+        uploadArea?.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            this.classList.add('dragging');
+        });
+
+        uploadArea?.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            this.classList.remove('dragging');
+        });
+
+        uploadArea?.addEventListener('drop', function(e) {
+            e.preventDefault();
+            this.classList.remove('dragging');
+
+            const file = e.dataTransfer.files[0];
+            if (file && file.name.endsWith('.csv')) {
+                csvFileInput.files = e.dataTransfer.files;
+                displayFilePreview(file);
+            } else {
+                alert('Please upload a CSV file');
+            }
+        });
+
+        // Close modal on outside click
+        document.getElementById('addEmployeeModal')?.addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeModal();
+            }
+        });
+
+        // Close modal on Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeModal();
+            }
+        });
+    </script>
+</body>
+</html>

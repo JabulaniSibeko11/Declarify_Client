@@ -1,0 +1,296 @@
+﻿@{
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Activate Declarify | License Validation</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <link href="~/css/activateapp.css" rel="stylesheet" />
+</head>
+<body>
+    <!-- Animated Background -->
+    <div class="bg-orb bg-orb-1"></div>
+    <div class="bg-orb bg-orb-2"></div>
+    <div class="bg-orb bg-orb-3"></div>
+    <div class="grid-overlay"></div>
+
+    <!-- Main Container -->
+    <div class="activation-container">
+        <!-- Logo Section -->
+        <div class="logo-section">
+            <div class="logo-icon"></div>
+            <div class="logo-text">
+                Declar<span class="cyan">ify</span>
+            </div>
+            <div class="tagline">Public Sector Integrity. Clarified.</div>
+        </div>
+
+        <!-- Activation Card -->
+        <div class="activation-card">
+            <!-- Form Container -->
+            <div id="formContainer">
+                <div class="card-header">
+                    <h1 class="card-title">Activate Your License</h1>
+                    <p class="card-subtitle">
+                        Enter your unique license key to activate Declarify and begin managing declarations of interest for your organization.
+                    </p>
+                </div>
+
+                <!-- Alert Messages -->
+                <div id="alertBox" class="alert">
+                    <span class="alert-icon"></span>
+                    <span id="alertMessage"></span>
+                </div>
+
+                <!-- Activation Form -->
+                <form id="activationForm">
+                    <div class="form-group">
+                        <label for="licenseKey" class="form-label">License Key</label>
+                        <div class="input-wrapper">
+                            <input type="text"
+                                   id="licenseKey"
+                                   name="licenseKey"
+                                   class="form-input"
+                                   placeholder="XXXX-XXXX-XXXX-XXXX"
+                                   required
+                                   autocomplete="off"
+                                   spellcheck="false">
+                            <div class="input-spinner" id="loadingSpinner"></div>
+                        </div>
+                    </div>
+
+                    <button type="submit" id="submitBtn" class="btn btn-primary">
+                        Validate License
+                    </button>
+                </form>
+
+                <div class="text-center mt-4">
+                    <small style="color: var(--color-text-muted);">
+                        Don't have a license key?
+                        <a href="#" style="color: var(--color-accent); text-decoration: none; font-weight: 600;">Contact Support</a>
+                    </small>
+                </div>
+            </div>
+
+            <!-- Success Container (Hidden by default) -->
+            <div id="successContainer" class="success-container">
+                <div class="success-icon"></div>
+                <h2 class="success-title">License Activated Successfully!</h2>
+                <p class="success-message">
+                    Your Declarify instance is now active and ready to use. Welcome aboard!
+                </p>
+
+                <div class="license-details" id="licenseDetails">
+                    <!-- License details will be populated here -->
+                </div>
+
+                <button type="button" id="continueBtn" class="btn btn-secondary">
+                    Continue to Dashboard
+                </button>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p>Powered by Declarify v1.0 | <a href="#">Privacy Policy</a> | <a href="#">Terms of Service</a></p>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const API_BASE_URL = 'https://your-central-hub-api.com/api'; // Replace with your actual API URL
+
+        // DOM Elements
+        const activationForm = document.getElementById('activationForm');
+        const licenseKeyInput = document.getElementById('licenseKey');
+        const submitBtn = document.getElementById('submitBtn');
+        const alertBox = document.getElementById('alertBox');
+        const alertMessage = document.getElementById('alertMessage');
+        const loadingSpinner = document.getElementById('loadingSpinner');
+        const formContainer = document.getElementById('formContainer');
+        const successContainer = document.getElementById('successContainer');
+        const licenseDetails = document.getElementById('licenseDetails');
+        const continueBtn = document.getElementById('continueBtn');
+
+        // Alert Functions
+        function showAlert(message, type = 'info') {
+            alertBox.className = `alert alert-${type} show`;
+            alertMessage.textContent = message;
+
+            const icons = {
+                success: '✓',
+                error: '✕',
+                info: 'ⓘ',
+                warning: '⚠'
+            };
+
+            const iconSpan = alertBox.querySelector('.alert-icon');
+            iconSpan.textContent = icons[type] || icons.info;
+        }
+
+        function hideAlert() {
+            alertBox.classList.remove('show');
+        }
+
+        // Format License Key (Add dashes as user types)
+        licenseKeyInput.addEventListener('input', function(e) {
+            let value = e.target.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+            let formatted = value.match(/.{1,4}/g)?.join('-') || value;
+            e.target.value = formatted;
+        });
+
+        // Form Submission
+        activationForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            hideAlert();
+
+            const licenseKey = licenseKeyInput.value.replace(/-/g, ''); // Remove dashes
+
+            if (licenseKey.length < 8) {
+                showAlert('Please enter a valid license key', 'error');
+                return;
+            }
+
+            // Show loading state
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Validating...';
+            loadingSpinner.classList.add('active');
+
+            try {
+                // API Call to validate license
+                const response = await fetch(`${API_BASE_URL}/LicenseApi/Validate/${licenseKey}`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'License validation failed');
+                }
+
+                if (data.isValid) {
+                    // Success! Show success screen
+                    displaySuccessScreen(data);
+                } else {
+                    if (data.IsExpired) {
+                        showAlert(data.message || 'License has expired. Please renew to continue.', 'error');
+                    } else {
+                        showAlert('Invalid license key. Please check and try again.', 'error');
+                    }
+                }
+
+            } catch (error) {
+                console.error('Validation error:', error);
+                showAlert(error.message || 'Unable to validate license. Please check your connection and try again.', 'error');
+            } finally {
+                // Reset button state
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Validate License';
+                loadingSpinner.classList.remove('active');
+            }
+        });
+
+        // Display Success Screen
+        function displaySuccessScreen(licenseData) {
+            // Hide form, show success
+            formContainer.classList.add('hidden');
+            successContainer.classList.add('show');
+
+            // Calculate status
+            const daysUntilExpiry = licenseData.daysUntilExpiry;
+            let statusClass = 'status-active';
+            let statusText = 'Active';
+
+            if (daysUntilExpiry <= 30) {
+                statusClass = 'status-warning';
+                statusText = `Expires in ${daysUntilExpiry} days`;
+            }
+
+            // Populate license details
+            licenseDetails.innerHTML = `
+                <div class="license-row">
+                    <span class="license-label">Company Name</span>
+                    <span class="license-value">${licenseData.companyName}</span>
+                </div>
+                <div class="license-row">
+                    <span class="license-label">License Key</span>
+                    <span class="license-value">${formatLicenseKey(licenseData.LicenseKey)}</span>
+                </div>
+                <div class="license-row">
+                    <span class="license-label">Email Domain</span>
+                    <span class="license-value">${licenseData.emailDomain}</span>
+                </div>
+                <div class="license-row">
+                    <span class="license-label">Status</span>
+                    <span class="license-value">
+                        <span class="status-badge ${statusClass}">${statusText}</span>
+                    </span>
+                </div>
+                <div class="license-row">
+                    <span class="license-label">Expiry Date</span>
+                    <span class="license-value">${formatDate(licenseData.expiryDate)}</span>
+                </div>
+            `;
+
+            // Store license data for later use
+            localStorage.setItem('declarify_license', JSON.stringify(licenseData));
+        }
+
+        // Continue to Dashboard
+        continueBtn.addEventListener('click', function() {
+            // Redirect to dashboard or main application
+            window.location.href = '/dashboard'; // Update with your dashboard URL
+        });
+
+        // Utility Functions
+        function formatLicenseKey(key) {
+            return key.match(/.{1,4}/g)?.join('-') || key;
+        }
+
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+        }
+
+        // Auto-format on paste
+        licenseKeyInput.addEventListener('paste', function(e) {
+            setTimeout(() => {
+                let value = e.target.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+                e.target.value = value.match(/.{1,4}/g)?.join('-') || value;
+            }, 0);
+        });
+
+        // Check for existing license on page load
+        window.addEventListener('DOMContentLoaded', function() {
+            const existingLicense = localStorage.getItem('declarify_license');
+            if (existingLicense) {
+                const licenseData = JSON.parse(existingLicense);
+
+                // Check if license is still valid
+                if (!licenseData.IsExpired) {
+                    showAlert('An active license was detected. Redirecting...', 'info');
+                    setTimeout(() => {
+                        window.location.href = '/dashboard';
+                    }, 2000);
+                } else {
+                    showAlert('Your previous license has expired. Please enter a new license key.', 'warning');
+                }
+            }
+        });
+    </script>
+</body>
+</html>

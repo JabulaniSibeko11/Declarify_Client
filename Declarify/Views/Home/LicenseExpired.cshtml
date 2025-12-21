@@ -1,0 +1,80 @@
+﻿@{
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>License Renewal Required - Declarify</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <link href="~/css/licenseexpired.css" rel="stylesheet" />
+</head>
+<body>
+    <!-- Background Orbs -->
+    <div class="bg-orb orb-1"></div>
+    <div class="bg-orb orb-2"></div>
+    <div class="bg-orb orb-3"></div>
+
+    <!-- Modal Overlay -->
+    <div class="modal-overlay">
+        <div class="modal-card">
+            <div class="accent-bar"></div>
+
+            <div class="modal-content">
+                <!-- Icon -->
+                <div class="icon-container">
+                    <div class="icon-bg"></div>
+                    <div class="icon-content">
+                        <svg class="lock-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="5" y="11" width="14" height="10" rx="2" ry="2"></rect>
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                        </svg>
+                    </div>
+                </div>
+
+                <!-- Title -->
+                <h1 class="modal-title">
+                    License Renewal
+                    <span class="highlight">Required</span>
+                </h1>
+
+                <!-- Message -->
+                <p class="modal-message">
+                    Your annual Declarify license has expired and requires immediate renewal.
+                </p>
+                <p class="modal-submessage">
+                    All system access has been suspended until the license fee is processed. Please contact your vendor to restore full functionality.
+                </p>
+
+                <!-- Info Box -->
+                <div class="info-box">
+                    <div class="info-label">Annual Renewal Deadline</div>
+                    <div class="info-value">February 1st, @DateTime.Now.Year</div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="action-buttons">
+                    <button class="btn btn-primary" onclick="window.location.href='@Url.Action("ContactVendor", "Support")'">
+                        Contact Vendor
+                    </button>
+                    <button class="btn btn-secondary" onclick="window.location.href='@Url.Action("CheckStatus", "License")'">
+                        Check Status
+                    </button>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="modal-footer">
+                <svg class="support-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <path d="M12 16v-4M12 8h.01"></path>
+                </svg>
+                <span>Need assistance? Contact your system administrator</span>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
