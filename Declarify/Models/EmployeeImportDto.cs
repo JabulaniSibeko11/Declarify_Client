@@ -1,4 +1,6 @@
-﻿namespace Declarify.Models
+﻿using System.ComponentModel.DataAnnotations.Schema;
+
+namespace Declarify.Models
 {
     public class EmployeeImportDto
     {
@@ -111,10 +113,23 @@
         public double CompliancePercentage { get; set; }
     }
     public class VerificationAttachment {
-        public int SubmissionId { get; set; }
 
-        public string ResultJson { get; set; }
+        public int VerificationId { get; set; }
+        public int SubmissionId { get; set; }
+        public string? Type { get; set; }  // "CIPC", "Credit"
+        public string? ResultJson { get; set; }
      public DateTime   CreatedAt { get; set; }
-    
+
+        public DateTime VerifiedDate { get; set; }
+
+        // Optional: Who initiated the verification (Admin or Reviewer)
+        public int? InitiatedByEmployeeId { get; set; }
+
+        // Navigation properties
+        [ForeignKey(nameof(SubmissionId))]
+        public virtual FormSubmission? Submission { get; set; }
+
+        [ForeignKey(nameof(InitiatedByEmployeeId))]
+        public virtual Employee? InitiatedBy { get; set; }
     }
 }

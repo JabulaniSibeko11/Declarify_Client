@@ -19,6 +19,9 @@ namespace Declarify.Models
         [Required]
         public string? Status { get; set; } // e.g., "Outstanding", "Submitted", "Reviewed"
 
+        public string? AccessToken { get; set; }
+
+        public DateTime TokenExpiry { get; set; }
         // Navigation properties
         public virtual Employee? Employee { get; set; }
         public virtual Template? Template { get; set; }

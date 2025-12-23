@@ -1,0 +1,188 @@
+﻿@model Declarify.Models.ViewModels.EmployeeManagementViewModel
+
+@{
+    ViewData["Title"] = "Employee Management";
+    Layout = null;
+    <!-- Use your main layout if you have one, or keep null for standalone -->
+}
+
+<link href="~/css/managetemplate.css" rel="stylesheet" /> <!-- Reuse same CSS, or create manageemployees.css if needed -->
+
+<div class="page-header">
+    <div class="header-content">
+        <h1 class="header-title">
+            <svg width="44" height="44" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                <circle cx="9" cy="7" r="4"></circle>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+            Employee Management
+        </h1>
+        <p class="header-subtitle">Manage employee records, import via CSV, and view compliance status</p>
+    </div>
+</div>
+
+<div class="content-container">
+    <div class="control-panel">
+        <div class="search-box">
+            <svg class="search-icon" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                <circle cx="11" cy="11" r="8" />
+                <path d="m21 21-4.35-4.35" />
+            </svg>
+            <input type="text" id="searchInput" placeholder="Search employees by name, ID, email or department..." />
+        </div>
+
+        <div class="filter-section">
+            <button class="filter-pill active" data-filter="all">All (@Model.TotalEmployees)</button>
+            <button class="filter-pill" data-filter="active">Active</button>
+            <button class="filter-pill" data-filter="inactive">Inactive</button>
+        </div>
+
+        <div class="action-buttons-group">
+            <a href="@Url.Action("DownloadEmployeeTemplate")" class="btn-ghost">
+                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                </svg>
+                Download Template
+            </a>
+            <a href="@Url.Action("ImportEmployees")" class="btn-primary">
+                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
+                    <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+                </svg>
+                Import Employees
+            </a>
+        </div>
+    </div>
+
+    @if (Model.Employees == null || !Model.Employees.Any())
+    {
+        <div class="empty-state">
+            <svg width="120" height="120" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                <circle cx="9" cy="7" r="4"></circle>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+            <h3>No Employees Found</h3>
+            <p>Start by importing your employee list using the CSV import feature</p>
+            <a href="@Url.Action("ImportEmployees")" class="btn-primary">
+                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
+                    <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+                </svg>
+                Import Your First Employees
+            </a>
+        </div>
+    }
+    else
+    {
+        <div class="table-container">
+            <table id="employeesTable">
+                <thead>
+                    <tr>
+                        <th style="width: 25%;">Employee</th>
+                        <th style="width: 15%;">Employee ID</th>
+                        <th style="width: 20%;">Department</th>
+                        <th style="width: 20%;">Position</th>
+                        <th style="width: 10%;">Status</th>
+                        <th style="width: 10%;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var emp in Model.Employees)
+                    {
+                        var statusClass = emp.IsActive ? "active" : "inactive";
+                        var statusText = emp.IsActive ? "Active" : "Inactive";
+
+                        <tr data-status="@statusClass.ToLower()">
+                            <td>
+                                <div class="employee-name">@emp.Full_Name</div>
+                                <div class="employee-email">@emp.Email_Address</div>
+                            </td>
+                            <td>
+                                <span class="employee-id">@emp.EmployeeNumber</span>
+                            </td>
+                            <td>@emp.Department</td>
+                            <td>@emp.Position</td>
+                            <td>
+                                <span class="status-badge @statusClass">@statusText</span>
+                            </td>
+                            <td>
+                                <div class="action-buttons">
+                                    <a href="@Url.Action("EmployeeDetails", new { id = emp.EmployeeId })" class="btn-action">
+                                        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                            <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                            <path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                        </svg>
+                                        View
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Optional: Department Summary Cards -->
+        @if (Model.DepartmentCounts?.Any() == true)
+        {
+            <div class="department-summary" style="margin-top: 2rem;">
+                <h3 style="margin-bottom: 1rem; font-weight: 700; color: var(--color-primary);">Employees by Department</h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem;">
+                    @foreach (var dept in Model.DepartmentCounts)
+                    {
+                        <div style="background: rgba(0,194,203,0.05); border: 2px solid rgba(0,194,203,0.2); border-radius: 12px; padding: 1rem; text-align: center;">
+                            <div style="font-weight: 700; font-size: 1.5rem; color: var(--color-accent);">@dept.Value</div>
+                            <div style="color: var(--color-text-muted);">@dept.Key</div>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@section Scripts {
+    <script>
+        // Search functionality
+        const searchInput = document.getElementById('searchInput');
+        searchInput.addEventListener('input', function () {
+            const term = this.value.toLowerCase();
+            const rows = document.querySelectorAll('#employeesTable tbody tr');
+
+            rows.forEach(row => {
+                const name = row.querySelector('.employee-name').textContent.toLowerCase();
+                const email = row.querySelector('.employee-email').textContent.toLowerCase();
+                const id = row.querySelector('.employee-id').textContent.toLowerCase();
+                const dept = row.cells[2].textContent.toLowerCase();
+                const position = row.cells[3].textContent.toLowerCase();
+
+                if (name.includes(term) || email.includes(term) || id.includes(term) || dept.includes(term) || position.includes(term)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        });
+
+        // Filter by status
+        document.querySelectorAll('.filter-pill').forEach(pill => {
+            pill.addEventListener('click', function () {
+                document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
+                this.classList.add('active');
+
+                const filter = this.dataset.filter;
+                const rows = document.querySelectorAll('#employeesTable tbody tr');
+
+                rows.forEach(row => {
+                    if (filter === 'all' || row.dataset.status === filter) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+            });
+        });
+    </script>
+}

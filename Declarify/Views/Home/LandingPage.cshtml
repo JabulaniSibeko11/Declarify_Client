@@ -84,7 +84,7 @@
                 <div class="success-icon"></div>
                 <h2 class="success-title">License Activated Successfully!</h2>
                 <p class="success-message">
-                    Your Declarify instance is now active and ready to use. Welcome aboard!
+                    Your Declarify instance is now active and ready to use. You will be redirected to the login page to access the system.
                 </p>
 
                 <div class="license-details" id="licenseDetails">
@@ -92,7 +92,7 @@
                 </div>
 
                 <button type="button" id="continueBtn" class="btn btn-secondary">
-                    Continue to Dashboard
+                    Continue to Login
                 </button>
             </div>
         </div>
@@ -243,13 +243,14 @@
             `;
 
             // Store license data for later use
-            localStorage.setItem('declarify_license', JSON.stringify(licenseData));
+            sessionStorage.setItem('declarify_license_activated', 'true');
+            sessionStorage.setItem('declarify_license_data', JSON.stringify(licenseData));
         }
 
-        // Continue to Dashboard
+        // Continue to Login (UPDATED: Redirects to Login instead of Dashboard)
         continueBtn.addEventListener('click', function() {
-            // Redirect to dashboard or main application
-            window.location.href = '/dashboard'; // Update with your dashboard URL
+            // Redirect to login page after successful activation
+            window.location.href = '@Url.Action("Login", "Home")';
         });
 
         // Utility Functions
@@ -274,21 +275,16 @@
             }, 0);
         });
 
-        // Check for existing license on page load
+        // Check for existing activation on page load
         window.addEventListener('DOMContentLoaded', function() {
-            const existingLicense = localStorage.getItem('declarify_license');
-            if (existingLicense) {
-                const licenseData = JSON.parse(existingLicense);
+            const licenseActivated = sessionStorage.getItem('declarify_license_activated');
 
-                // Check if license is still valid
-                if (!licenseData.IsExpired) {
-                    showAlert('An active license was detected. Redirecting...', 'info');
-                    setTimeout(() => {
-                        window.location.href = '/dashboard';
-                    }, 2000);
-                } else {
-                    showAlert('Your previous license has expired. Please enter a new license key.', 'warning');
-                }
+            if (licenseActivated === 'true') {
+                // License was recently activated, redirect to login
+                showAlert('License is active. Redirecting to login...', 'success');
+                setTimeout(() => {
+                    window.location.href = '@Url.Action("Login", "Home")';
+                }, 1500);
             }
         });
     </script>

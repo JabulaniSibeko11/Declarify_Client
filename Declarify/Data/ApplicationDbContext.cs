@@ -22,6 +22,7 @@ namespace Declarify.Data
         public DbSet<VerificationResult> VerificationResults { get; set; }
         public DbSet<OrganizationalDomain> OrganizationalDomains { get; set; }
 
+        public DbSet<VerificationAttachment> VerificationAttachments { get; set; }
         // Supporting entities
 
 
@@ -107,6 +108,7 @@ namespace Declarify.Data
                       .WithMany(s => s.VerificationResults)
                       .HasForeignKey(v => v.SubmissionId)
                       .OnDelete(DeleteBehavior.Cascade);
+
             });
 
             // OrganizationalDomain
@@ -114,6 +116,38 @@ namespace Declarify.Data
             {
                 entity.HasIndex(d => d.DomainName).IsUnique();
             });
+
+            modelBuilder.Entity<VerificationAttachment>(entity =>
+            {
+                entity.HasKey(v => v.VerificationId);
+
+                entity.Property(v => v.Type)
+                      .IsRequired()
+                      .HasMaxLength(50);
+
+                entity.Property(v => v.ResultJson)
+                      .IsRequired();
+
+                entity.Property(v => v.VerifiedDate)
+                      .HasDefaultValueSql("GETUTCDATE()"); // Use GETUTCDATE() for SQL Server
+
+                // Main relationship: Submission → Attachments (keep CASCADE — safe)
+                entity.HasOne(v => v.Submission)
+                      .WithMany(s => s.VerificationAttachments)
+                      .HasForeignKey(v => v.SubmissionId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                // Problematic FK: InitiatedBy → Employee
+                // Change to NO ACTION to avoid multiple cascade paths
+                entity.HasOne(v => v.InitiatedBy)
+                      .WithMany() // No navigation collection needed back
+                      .HasForeignKey(v => v.InitiatedByEmployeeId)
+                      .OnDelete(DeleteBehavior.NoAction); // ← THIS FIXES THE ERROR
+            });
+
+            // Ensure SubmissionId is indexed for performance
+            modelBuilder.Entity<VerificationAttachment>()
+                .HasIndex(v => v.SubmissionId);
         }
     }
 }

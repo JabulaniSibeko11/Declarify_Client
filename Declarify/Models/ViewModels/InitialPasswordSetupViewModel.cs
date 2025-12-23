@@ -26,8 +26,9 @@ namespace Declarify.Models.ViewModels
         [Compare("Password", ErrorMessage = "The password and confirmation password do not match.")]
         public string ConfirmPassword { get; set; } = string.Empty;
 
-        [Required(ErrorMessage = "Signature is required")]
-        public string? SignatureData { get; set; } // Base64 encoded signature image
+        [Required(ErrorMessage = "Digital signature is required")]
+        [Display(Name = "Digital Signature")]
+        public string SignatureData { get; set; } = string.Empty;
 
     }
 }

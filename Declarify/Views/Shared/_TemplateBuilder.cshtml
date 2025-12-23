@@ -1,0 +1,536 @@
+﻿
+<!-- Template Builder Modal - Step-by-Step Wizard -->
+<div class="modal-overlay" id="templateBuilderModal">
+    <div class="modal-container template-builder-container">
+        <!-- Progress Indicator -->
+        <div class="wizard-progress">
+            <div class="progress-step active" data-step="1">
+                <div class="progress-step-circle">1</div>
+                <div class="progress-step-label">Template Info</div>
+            </div>
+            <div class="progress-line"></div>
+            <div class="progress-step" data-step="2">
+                <div class="progress-step-circle">2</div>
+                <div class="progress-step-label">Build Template</div>
+            </div>
+            <div class="progress-line"></div>
+            <div class="progress-step" data-step="3">
+                <div class="progress-step-circle">3</div>
+                <div class="progress-step-label">Preview & Publish</div>
+            </div>
+        </div>
+
+        <div class="modal-header">
+            <h2 id="wizardTitle">✨ Create Template - Step 1</h2>
+            <button class="modal-close" onclick="closeTemplateBuilder()">×</button>
+        </div>
+
+        <!-- Step 1: Template Information -->
+        <div class="wizard-step" id="step1" style="display: block;">
+            <div class="modal-form">
+                <div class="step-intro">
+                    <div class="intro-icon">📋</div>
+                    <h3>Template Information</h3>
+                    <p>Start by providing basic information about your Declaration of Interest template</p>
+                </div>
+
+                <div class="form-group-wizard">
+                    <label>Template Name <span class="required-mark">*</span></label>
+                    <input type="text" id="templateName" placeholder="e.g., Annual Declaration of Interest 2025" required>
+                    <small>Give your template a descriptive name that employees will recognize</small>
+                </div>
+
+                <div class="form-group-wizard">
+                    <label>Description</label>
+                    <textarea id="templateDescription" rows="3" placeholder="Brief description of this template and its purpose..."></textarea>
+                    <small>This description will be shown to employees when they complete the form</small>
+                </div>
+
+                <div class="form-group-wizard">
+                    <label>Default Due Date (Days from Issue) <span class="required-mark">*</span></label>
+                    <input type="number" id="defaultDueDays" value="30" min="1" max="365" required>
+                    <small>Number of days employees have to complete the declaration after it's issued (FR 4.3.1)</small>
+                </div>
+
+                <div class="form-group-wizard">
+                    <label>Reminder Schedule</label>
+                    <div class="checkbox-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="reminder7days" checked>
+                            <span>Send reminder 7 days before due date</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="reminderDueDate" checked>
+                            <span>Send reminder on due date</span>
+                        </label>
+                    </div>
+                    <small>Automated reminders help improve compliance rates (FR 4.3.4)</small>
+                </div>
+
+                <div class="modal-actions">
+                    <button class="btn btn-ghost" onclick="closeTemplateBuilder()">Cancel</button>
+                    <button class="btn btn-primary" onclick="goToStep(2)">
+                        Next: Build Template
+                        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path d="M9 5l7 7-7 7" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 2: Build Template -->
+        <div class="wizard-step" id="step2" style="display: none;">
+            <div class="modal-form">
+                <div class="step-intro">
+                    <div class="intro-icon">🏗️</div>
+                    <h3>Build Your Template</h3>
+                    <p>Add sections and fields to create your custom declaration form</p>
+                </div>
+
+                <!-- Field Type Palette -->
+                <div class="field-palette">
+                    <h4>Available Field Types:</h4>
+                    <div class="palette-grid">
+                        <div class="palette-item" data-type="text" title="Single line text input">
+                            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M4 6h16M4 12h16M4 18h7" />
+                            </svg>
+                            <span>Text</span>
+                        </div>
+                        <div class="palette-item" data-type="textarea" title="Multi-line text input">
+                            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                            </svg>
+                            <span>Long Text</span>
+                        </div>
+                        <div class="palette-item" data-type="email" title="Email address input">
+                            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                            </svg>
+                            <span>Email</span>
+                        </div>
+                        <div class="palette-item" data-type="number" title="Numeric input">
+                            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
+                            </svg>
+                            <span>Number</span>
+                        </div>
+                        <div class="palette-item" data-type="currency" title="Currency/money amount">
+                            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span>Currency</span>
+                        </div>
+                        <div class="palette-item" data-type="date" title="Date picker">
+                            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            <span>Date</span>
+                        </div>
+                        <div class="palette-item" data-type="boolean" title="Yes/No choice">
+                            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span>Yes/No</span>
+                        </div>
+                        <div class="palette-item" data-type="checkbox" title="Checkbox for agreement">
+                            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M5 13l4 4L19 7" />
+                            </svg>
+                            <span>Checkbox</span>
+                        </div>
+                        <div class="palette-item" data-type="select" title="Dropdown selection">
+                            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M4 6h16M4 12h16M4 18h7" />
+                                <path d="M19 9l-3 3-3-3" />
+                            </svg>
+                            <span>Dropdown</span>
+                        </div>
+                        <div class="palette-item" data-type="radio" title="Single choice from multiple options">
+                            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <circle cx="12" cy="12" r="10" />
+                                <circle cx="12" cy="12" r="3" fill="currentColor" />
+                            </svg>
+                            <span>Radio</span>
+                        </div>
+                        <div class="palette-item" data-type="file" title="File upload">
+                            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                            </svg>
+                            <span>File Upload</span>
+                        </div>
+                        <div class="palette-item" data-type="phone" title="Phone number">
+                            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                            </svg>
+                            <span>Phone</span>
+                        </div>
+                        <div class="palette-item" data-type="url" title="Website URL">
+                            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                            </svg>
+                            <span>URL</span>
+                        </div>
+                        <div class="palette-item" data-type="table" title="Data table">
+                            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>
+                            <span>Table</span>
+                        </div>
+                        <div class="palette-item" data-type="signature" title="Digital signature">
+                            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                            </svg>
+                            <span>Signature</span>
+                        </div>
+                        <div class="palette-item" data-type="heading" title="Section heading">
+                            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M4 6h16M4 12h16M4 18h16" stroke-width="3" />
+                            </svg>
+                            <span>Heading</span>
+                        </div>
+                        <div class="palette-item" data-type="paragraph" title="Descriptive text">
+                            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            <span>Paragraph</span>
+                        </div>
+                        <div class="palette-item" data-type="divider" title="Visual separator">
+                            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M4 12h16" />
+                            </svg>
+                            <span>Divider</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sections Container with Live Preview -->
+                <div class="builder-workspace">
+                    <div class="workspace-sections" id="sectionsContainer">
+                        <div class="empty-state">
+                            <div class="empty-icon">📋</div>
+                            <h3>Start Building Your Template</h3>
+                            <p>Add your first section to begin</p>
+                            <button class="btn btn-primary" onclick="addSection()">
+                                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path d="M12 4v16m8-8H4" />
+                                </svg>
+                                Add First Section
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-actions">
+                    <button class="btn btn-ghost" onclick="goToStep(1)">
+                        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path d="M15 19l-7-7 7-7" />
+                        </svg>
+                        Back
+                    </button>
+                    <button class="btn btn-primary" onclick="goToStep(3)">
+                        Next: Preview
+                        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path d="M9 5l7 7-7 7" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 3: Preview & Publish -->
+        <div class="wizard-step" id="step3" style="display: none;">
+            <div class="modal-form">
+                <div class="step-intro">
+                    <div class="intro-icon">👁️</div>
+                    <h3>Preview Your Template</h3>
+                    <p>Review how employees will see this declaration form</p>
+                </div>
+
+                <div class="preview-container-full">
+                    <!-- Template Header Preview -->
+                    <div class="preview-header-full">
+                        <div class="preview-logo">
+                            <div class="logo-circle">
+                                <svg width="24" height="24" fill="none" stroke="white" stroke-width="3" viewBox="0 0 24 24">
+                                    <path d="M5 13l4 4L19 7" />
+                                </svg>
+                            </div>
+                        </div>
+                        <h1 id="previewTemplateName">Template Name</h1>
+                        <p id="previewTemplateDescription">Template description</p>
+                        <div class="preview-meta">
+                            <div class="meta-item">
+                                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                                <span>Due: <span id="previewDueDate">30 days from issue</span></span>
+                            </div>
+                            <div class="meta-item">
+                                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span id="previewSectionCount">0 sections</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Employee Info Preview (Always included) -->
+                    <div class="preview-section-full employee-info-section">
+                        <div class="section-header-preview">
+                            <div class="section-icon">👤</div>
+                            <h2>Employee Information</h2>
+                            <span class="section-badge">Auto-populated</span>
+                        </div>
+                        <p class="section-note">This information is automatically filled from your employee record</p>
+                        <div class="preview-fields-grid">
+                            <div class="preview-field-full">
+                                <label>Full Name</label>
+                                <div class="field-value-preview">John Doe</div>
+                            </div>
+                            <div class="preview-field-full">
+                                <label>Employee Number</label>
+                                <div class="field-value-preview">EMP-12345</div>
+                            </div>
+                            <div class="preview-field-full">
+                                <label>Position</label>
+                                <div class="field-value-preview">Senior Manager</div>
+                            </div>
+                            <div class="preview-field-full">
+                                <label>Department</label>
+                                <div class="field-value-preview">Finance</div>
+                            </div>
+                            <div class="preview-field-full">
+                                <label>Email</label>
+                                <div class="field-value-preview">john.doe@example.com</div>
+                            </div>
+                            <div class="preview-field-full">
+                                <label>Declaration Date</label>
+                                <div class="field-value-preview">2025-12-21</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Dynamic Sections Preview -->
+                    <div id="previewSectionsContainer">
+                        <!-- Sections will be rendered here -->
+                    </div>
+
+                    <!-- Attestation Section (Always included) -->
+                    <div class="preview-section-full attestation-section">
+                        <div class="section-header-preview">
+                            <div class="section-icon">✓</div>
+                            <h2>Declaration & Attestation</h2>
+                            <span class="section-badge required-badge">Required</span>
+                        </div>
+                        <div class="attestation-box">
+                            <p><strong>I hereby declare that:</strong></p>
+                            <ul>
+                                <li>The information provided in this declaration is true and complete to the best of my knowledge</li>
+                                <li>I understand that any false or misleading information may result in disciplinary action</li>
+                                <li>I will notify my supervisor immediately if any circumstances change that would affect this declaration</li>
+                            </ul>
+                            <label class="checkbox-label attestation-checkbox">
+                                <input type="checkbox" disabled>
+                                <span><strong>I agree to the above declaration</strong> <span class="required-mark">*</span></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-actions">
+                    <button class="btn btn-ghost" onclick="goToStep(2)">
+                        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path d="M15 19l-7-7 7-7" />
+                        </svg>
+                        Back to Edit
+                    </button>
+                    <button class="btn btn-ghost" onclick="saveDraft()">
+                        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                        </svg>
+                        Save as Draft
+                    </button>
+                    <button class="btn btn-primary" onclick="publishTemplate()">
+                        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path d="M5 13l4 4L19 7" />
+                        </svg>
+                        Publish Template
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Field Configuration Modal -->
+<div class="modal-overlay" id="fieldConfigModal">
+    <div class="modal-container field-config-container">
+        <div class="modal-header">
+            <h2 id="fieldConfigTitle">Configure Field</h2>
+            <button class="modal-close" onclick="closeFieldConfig()">×</button>
+        </div>
+        <div class="modal-form" id="fieldConfigForm">
+            <!-- Field configuration options will be dynamically inserted here -->
+        </div>
+    </div>
+</div>
+
+<!-- Table Builder Modal -->
+<div class="modal-overlay" id="tableBuilderModal">
+    <div class="modal-container table-builder-container">
+        <div class="modal-header">
+            <h2>🏗️ Build Table</h2>
+            <button class="modal-close" onclick="closeTableBuilder()">×</button>
+        </div>
+        <div class="modal-form">
+            <div class="form-group-wizard">
+                <label>Table Label <span class="required-mark">*</span></label>
+                <input type="text" id="tableLabel" placeholder="e.g., List of Directorships">
+            </div>
+
+            <div class="form-group-wizard">
+                <label>Number of Columns <span class="required-mark">*</span></label>
+                <input type="number" id="tableColumns" value="3" min="2" max="10" onchange="generateTableColumns()">
+            </div>
+
+            <div id="tableColumnsConfig">
+                <!-- Column configurations will be inserted here -->
+            </div>
+
+            <div class="form-group-wizard">
+                <label>Minimum Rows</label>
+                <input type="number" id="tableMinRows" value="1" min="1" max="20">
+                <small>Minimum number of rows employees must fill</small>
+            </div>
+
+            <div class="form-group-wizard">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="tableAllowAddRows" checked>
+                    <span>Allow employees to add more rows</span>
+                </label>
+            </div>
+
+            <div class="modal-actions">
+                <button class="btn btn-ghost" onclick="closeTableBuilder()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveTableConfig()">Add Table</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Field Modal -->
+<div class="modal-overlay" id="addFieldModal">
+    <div class="modal-container add-field-modal-container">
+        <div class="modal-header">
+            <h2>➕ Add Field to Section</h2>
+            <button class="modal-close" onclick="closeAddFieldModal()">×</button>
+        </div>
+        <div class="modal-form">
+            <div class="add-field-step" id="selectFieldTypeStep">
+                <div class="step-intro">
+                    <h3>Select Field Type</h3>
+                    <p>Choose the type of field you want to add</p>
+                </div>
+
+                <div class="field-type-grid">
+                    <div class="field-type-card" onclick="selectFieldType('text')">
+                        <div class="field-type-icon">📝</div>
+                        <h4>Text</h4>
+                        <p>Single line text input</p>
+                    </div>
+                    <div class="field-type-card" onclick="selectFieldType('textarea')">
+                        <div class="field-type-icon">📄</div>
+                        <h4>Long Text</h4>
+                        <p>Multi-line text area</p>
+                    </div>
+                    <div class="field-type-card" onclick="selectFieldType('email')">
+                        <div class="field-type-icon">📧</div>
+                        <h4>Email</h4>
+                        <p>Email address input</p>
+                    </div>
+                    <div class="field-type-card" onclick="selectFieldType('number')">
+                        <div class="field-type-icon">#️⃣</div>
+                        <h4>Number</h4>
+                        <p>Numeric input</p>
+                    </div>
+                    <div class="field-type-card" onclick="selectFieldType('currency')">
+                        <div class="field-type-icon">💰</div>
+                        <h4>Currency</h4>
+                        <p>Money amount (ZAR)</p>
+                    </div>
+                    <div class="field-type-card" onclick="selectFieldType('date')">
+                        <div class="field-type-icon">📅</div>
+                        <h4>Date</h4>
+                        <p>Date picker</p>
+                    </div>
+                    <div class="field-type-card" onclick="selectFieldType('boolean')">
+                        <div class="field-type-icon">✓</div>
+                        <h4>Yes/No</h4>
+                        <p>Radio button choice</p>
+                    </div>
+                    <div class="field-type-card" onclick="selectFieldType('checkbox')">
+                        <div class="field-type-icon">☑</div>
+                        <h4>Checkbox</h4>
+                        <p>Agreement checkbox</p>
+                    </div>
+                    <div class="field-type-card" onclick="selectFieldType('select')">
+                        <div class="field-type-icon">▼</div>
+                        <h4>Dropdown</h4>
+                        <p>Select from list</p>
+                    </div>
+                    <div class="field-type-card" onclick="selectFieldType('radio')">
+                        <div class="field-type-icon">◉</div>
+                        <h4>Radio Buttons</h4>
+                        <p>Single choice</p>
+                    </div>
+                    <div class="field-type-card" onclick="selectFieldType('file')">
+                        <div class="field-type-icon">📎</div>
+                        <h4>File Upload</h4>
+                        <p>Document attachment</p>
+                    </div>
+                    <div class="field-type-card" onclick="selectFieldType('phone')">
+                        <div class="field-type-icon">📞</div>
+                        <h4>Phone</h4>
+                        <p>Phone number</p>
+                    </div>
+                    <div class="field-type-card" onclick="selectFieldType('url')">
+                        <div class="field-type-icon">🔗</div>
+                        <h4>URL</h4>
+                        <p>Website link</p>
+                    </div>
+                    <div class="field-type-card" onclick="selectFieldType('table')">
+                        <div class="field-type-icon">⊞</div>
+                        <h4>Table</h4>
+                        <p>Data table with rows</p>
+                    </div>
+                    <div class="field-type-card" onclick="selectFieldType('signature')">
+                        <div class="field-type-icon">✍</div>
+                        <h4>Signature</h4>
+                        <p>Digital signature</p>
+                    </div>
+                    <div class="field-type-card" onclick="selectFieldType('heading')">
+                        <div class="field-type-icon">H</div>
+                        <h4>Heading</h4>
+                        <p>Section header</p>
+                    </div>
+                    <div class="field-type-card" onclick="selectFieldType('paragraph')">
+                        <div class="field-type-icon">¶</div>
+                        <h4>Paragraph</h4>
+                        <p>Descriptive text</p>
+                    </div>
+                    <div class="field-type-card" onclick="selectFieldType('divider')">
+                        <div class="field-type-icon">—</div>
+                        <h4>Divider</h4>
+                        <p>Visual separator</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="add-field-step" id="configureFieldStep" style="display: none;">
+                <!-- Content will be dynamically inserted by JS -->
+            </div>
+        </div>
+    </div>
+</div>

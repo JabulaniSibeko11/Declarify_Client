@@ -10,6 +10,8 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.CodeAnalysis.Elfie.Serialization;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.VisualStudio.Web.CodeGenerators.Mvc.Templates.Blazor;
+using Newtonsoft.Json;
 using OfficeOpenXml;
 using OfficeOpenXml.Style;
 using System.Collections.Generic;
@@ -17,6 +19,10 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Drawing;
 using System.Globalization;
+using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
 using LicenseContext = OfficeOpenXml.LicenseContext;
 namespace Declarify.Controllers
 {
@@ -32,10 +38,11 @@ namespace Declarify.Controllers
         private readonly IVerificationService _VS;
         private readonly IUserService _US;
         private readonly ISubmissionService _SS;
+        private readonly IEmailService _EmailS;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly SignInManager<ApplicationUser> _signInManager;
         private readonly ApplicationDbContext _db;
-        public HomeController(ILogger<HomeController> logger,ApplicationDbContext db, IEmployeeService eS, ITemplateService tS, IFormTaskService fS, ICreditService cS, ILicenseService lS, IVerificationService vS, IUserService uS, ISubmissionService sS, UserManager<ApplicationUser> userManager, SignInManager<ApplicationUser> signInManager)
+        public HomeController(ILogger<HomeController> logger,IEmailService email,ApplicationDbContext db, IEmployeeService eS, ITemplateService tS, IFormTaskService fS, ICreditService cS, ILicenseService lS, IVerificationService vS, IUserService uS, ISubmissionService sS, UserManager<ApplicationUser> userManager, SignInManager<ApplicationUser> signInManager)
         {
             _logger = logger;
             _ES = eS;
@@ -49,11 +56,17 @@ namespace Declarify.Controllers
             _userManager = userManager;
             _signInManager = signInManager;
             _db = db;
+            _EmailS= email;
         }
 
 
-        public IActionResult LandingPage()
+        public async Task<IActionResult> LandingPage()
         {
+            //if (await _LS.IsLicenseValidAsync())
+            //{
+            //    TempData["Info"] = "Your license is already active. Please log in to continue.";
+            //    return RedirectToAction("Login");
+            //}
             return View();
         }
 
@@ -80,10 +93,10 @@ namespace Declarify.Controllers
             return View();
         }
        
-        [HttpPost]
-        [AllowAnonymous]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Login(LoginViewModel model, string? returnUrl = null)
+        //[HttpPost]
+        //[AllowAnonymous]
+        //[ValidateAntiForgeryToken]
+        public async Task<IActionResult> Login1(LoginViewModel model, string? returnUrl = null)
         {
             // Check license first (NFR 5.2.3)
             if (!await _LS.IsLicenseValidAsync())
@@ -172,6 +185,138 @@ namespace Declarify.Controllers
             return View(model);
         }
 
+
+        [HttpPost]
+        [AllowAnonymous]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Login(LoginViewModel model, string? returnUrl = null)
+        {
+            // Check license first (NFR 5.2.3)
+            if (!await _LS.IsLicenseValidAsync())
+            {
+                return View("LicenseExpired");
+            }
+
+            ViewData["ReturnUrl"] = returnUrl;
+
+            if (!ModelState.IsValid)
+            {
+                return View(model);
+            }
+
+            try
+            {
+                // Step 1: Find ApplicationUser by email
+                var user = await _userManager.FindByEmailAsync(model.Email);
+                if (user == null)
+                {
+                    _logger.LogWarning("Login attempt with non-existent email: {Email}", model.Email);
+                    ModelState.AddModelError(string.Empty, "Invalid email or password.");
+                    return View(model);
+                }
+
+                // Step 2: Force initial setup if no password or first login
+                var hasPassword = await _userManager.HasPasswordAsync(user);
+                if (!hasPassword || user.IsFirstLogin)
+                {
+                    _logger.LogInformation("User {Email} requires initial password setup.", model.Email);
+                    var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+                    return RedirectToAction("InitialSetup", new { email = model.Email, token });
+                }
+
+                // Step 3: Attempt sign-in
+                var result = await _signInManager.PasswordSignInAsync(
+                    user,
+                    model.Password,
+                    model.RememberMe,
+                    lockoutOnFailure: true);
+
+                if (result.Succeeded)
+                {
+                    // === NEW: Load the related Employee record to get EmployeeId ===
+                    // Assuming ApplicationUser has a navigation property or foreign key to Employee
+                    // Common patterns: user.EmployeeId or user.ApplicationUserId in Employee table
+
+                    Employee? employee = null;
+
+                    // Option A: If ApplicationUser has EmployeeId property (recommended)
+                    // if (user.EmployeeId.HasValue) { ... }
+
+                    // Option B: Most common — query Employee by ApplicationUserId
+                    employee = await _db.Employees
+                        .FirstOrDefaultAsync(e => e.ApplicationUserId == user.Id && e.IsActive);
+
+                    // If not found, log but still allow login (or handle differently based on your rules)
+                    if (employee == null)
+                    {
+                        _logger.LogWarning("Logged in user {Email} has no linked active Employee record.", model.Email);
+                        // You could still proceed, or force setup — your choice
+                        // For now, proceed without EmployeeId (dashboard may fail gracefully later)
+                    }
+
+                    // === NEW: Add custom claims including EmployeeId ===
+                    var claims = new List<Claim>();
+
+                    if (employee != null)
+                    {
+                        claims.Add(new Claim("EmployeeId", employee.EmployeeId.ToString()));
+                        claims.Add(new Claim(ClaimTypes.NameIdentifier, employee.EmployeeId.ToString())); // Override if you want
+                        claims.Add(new Claim(ClaimTypes.GivenName, employee.Full_Name ?? ""));
+                        // Optional: add other useful info
+                        // claims.Add(new Claim("Department", employee.Department ?? ""));
+                    }
+
+                    // Add or update claims
+                    if (claims.Any())
+                    {
+                        var identity = (ClaimsIdentity)User.Identity!;
+                        identity.AddClaims(claims);
+
+                        // Important: Re-sign in with additional claims
+                        await _signInManager.SignInWithClaimsAsync(user, model.RememberMe, claims);
+                    }
+                    else
+                    {
+                        // Normal sign-in if no extra claims
+                        // (But we already signed in above — this block only if you skip claims)
+                    }
+
+                    _logger.LogInformation("User {Email} logged in successfully. EmployeeId: {Id}",
+                        model.Email, employee?.EmployeeId ?? -1);
+
+                    TempData["Success"] = $"Welcome back, {employee?.Full_Name ?? user.Email}!";
+
+                    if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl))
+                    {
+                        return Redirect(returnUrl);
+                    }
+
+                    return RedirectToDashboardByRole(user);
+                }
+
+                // Handle 2FA, lockout, etc. (unchanged)
+                if (result.RequiresTwoFactor)
+                {
+                    return RedirectToAction("LoginWith2fa", new { returnUrl, model.RememberMe });
+                }
+
+                if (result.IsLockedOut)
+                {
+                    _logger.LogWarning("User {Email} account locked out.", model.Email);
+                    return View("Lockout");
+                }
+
+                _logger.LogWarning("Failed login attempt for {Email}.", model.Email);
+                ModelState.AddModelError(string.Empty, "Invalid email or password.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error during login for {Email}", model.Email);
+                ModelState.AddModelError(string.Empty, "An error occurred during login. Please try again.");
+            }
+
+            return View(model);
+        }
         // Initial password setup for users loaded via CSV (FR 4.1.1)
         [HttpGet]
         [AllowAnonymous]
@@ -209,9 +354,12 @@ namespace Declarify.Controllers
             {
                 return View(model);
             }
+            try {
 
-            // Validate signature
-            if (string.IsNullOrEmpty(model.SignatureData))
+                _logger.LogInformation("Signature length: {Length}", model.SignatureData?.Length);
+
+                // Validate signature
+                if (string.IsNullOrEmpty(model.SignatureData))
             {
                 ModelState.AddModelError("SignatureData", "Please provide your signature.");
                 return View(model);
@@ -259,6 +407,11 @@ namespace Declarify.Controllers
                 ModelState.AddModelError(string.Empty, error.Description);
             }
 
+           
+            }
+            catch (Exception ex) { 
+            
+            }
             return View(model);
         }
         [HttpPost]
@@ -301,14 +454,21 @@ namespace Declarify.Controllers
                     return View("LicenseExpired");
                 }
 
+                if (!User.Identity.IsAuthenticated)
+                {
+                    // Redirect to login page (adjust the route if needed)
+                    return RedirectToAction("Login", "Home");
+                }
                 var dashboardData = await _FS.GetComplianceDashboardDataAsync();
             var creditBalance = await _CS.GetAvailableCreditsAsync();
             var creditBatches = await _CS.GetCreditBatchesAsync();
             var licenseStatus = await _LS.GetLicenseStatusMessageAsync();
             var licenseExpiryDate = await _LS.GetExpiryDateAsync();
+                var templates = (await _TS.GetActiveTemplatesAsync()).ToList();
 
-            // Check for low credit balance
-            var lowCreditWarning = creditBalance < 50;
+
+                // Check for low credit balance
+                var lowCreditWarning = creditBalance < 50;
             var criticalCreditWarning = creditBalance < 20;
 
             // Check for expiring credits
@@ -343,8 +503,27 @@ namespace Declarify.Controllers
 
                 // Goal Tracking (G1: 95% compliance)
                 GoalComplianceRate = 95.0,
-                IsGoalAchieved = dashboardData.CompliancePercentage >= 95.0
+                IsGoalAchieved = dashboardData.CompliancePercentage >= 95.0,
+                // === POPULATE BULK REQUEST DATA FOR MODAL (FR 4.3.1) ===
+
+                BulkData = new BulkRequestViewModel
+                {
+                      Templates = templates,
+                   // Templates = (await _TS.GetActiveTemplatesAsync()).ToList(),
+                    Employees = await _ES.GetAllEmployeesAsync(),
+                    Departments = await _ES.GetDepartmentEmployeeCountsAsync(),
+                    SuggestedDueDate = DateTime.UtcNow.AddDays(30)
+                },
+                // In your Index method, after populating BulkData
+
             };
+
+             
+                // Populate bulk request data for the modal
+                // === POPULATE BULK REQUEST DATA FOR MODAL (FR 4.3.1) ===
+
+
+
                 return View(viewModel);
             }
             catch (Exception ex) {
@@ -356,6 +535,36 @@ namespace Declarify.Controllers
           
         }
 
+        [HttpGet]
+        public async Task<IActionResult> GetTemplate(int id)
+        {
+            try
+            {
+                var template = await _TS.GetByIdAsync(id);
+                if (template == null)
+                {
+                    return NotFound(new { success = false, message = "Template not found" });
+                }
+
+                return Json(new
+                {
+                    success = true,
+                    template = new
+                    {
+                        templateId = template.TemplateId,
+                        templateName = template.TemplateName,
+                        description = template.Description,
+                        //fields = template.field,
+                        // Add any other properties you need
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching template {TemplateId}", id);
+                return Json(new { success = false, message = "Error fetching template" });
+            }
+        }
         // License expired view (NFR 5.2.3)
         // Blocks all functionality when license is expired
         [HttpGet("license-expired")]
@@ -377,7 +586,7 @@ namespace Declarify.Controllers
         // ============================================================================
         // Show bulk request form
 
-        [HttpGet("bulk-request")]
+        [HttpGet]
         public async Task<IActionResult> BulkRequest()
         {
             if (!await _LS.IsLicenseValidAsync())
@@ -401,7 +610,7 @@ namespace Declarify.Controllers
         }
 
         // Process bulk request - create tasks and send emails (FR 4.3.1, 4.3.2, 4.3.3)
-        [HttpPost("bulk-request")]
+        [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> BulkRequest(BulkRequestFormModel model)
         {
@@ -413,37 +622,33 @@ namespace Declarify.Controllers
                     return RedirectToAction("LicenseExpired");
                 }
 
-                // Validate model
-                if (!ModelState.IsValid)
-                {
-                    TempData["Error"] = "Please correct the errors and try again.";
-                    return RedirectToAction("BulkRequest");
-                }
+                // Parse employee selection first
+                List<int> employeeIds = await ParseEmployeeSelection(model.EmployeeIdsJson);
 
                 // Validate employee selection
-                if (model.EmployeeIds == null || !model.EmployeeIds.Any())
+                if (employeeIds == null || !employeeIds.Any())
                 {
                     TempData["Error"] = "Please select at least one employee.";
                     return RedirectToAction("BulkRequest");
                 }
 
-                // Validate due date
+                // FR 4.3.1: Validate due date is in the future
                 if (model.DueDate <= DateTime.UtcNow)
                 {
                     TempData["Error"] = "Due date must be in the future.";
                     return RedirectToAction("BulkRequest");
                 }
 
-                _logger.LogInformation($"Admin initiating bulk request: Template={model.TemplateId}, Employees={model.EmployeeIds.Count}, DueDate={model.DueDate:yyyy-MM-dd}");
+                _logger.LogInformation($"Admin initiating bulk request: Template={model.TemplateId}, Employees={employeeIds.Count}, DueDate={model.DueDate:yyyy-MM-dd}");
 
                 // Create tasks and send emails
-                await _FS.BulkCreateTasksAsync(
+                await CreateTasksAndSendEmails(
                     model.TemplateId,
                     model.DueDate,
-                    model.EmployeeIds
+                    employeeIds
                 );
 
-                TempData["Success"] = $"Successfully sent DOI requests to {model.EmployeeIds.Count} employees. Due date: {model.DueDate:MMMM d, yyyy}";
+                TempData["Success"] = $"Successfully sent DOI requests to {employeeIds.Count} employees. Due date: {model.DueDate:MMMM d, yyyy}";
                 return RedirectToAction("Index");
             }
             catch (Exception ex)
@@ -454,27 +659,215 @@ namespace Declarify.Controllers
             }
         }
 
-        // Get employees by department (AJAX endpoint for dynamic filtering)
-        [HttpGet("employees/by-department/{department}")]
-        public async Task<IActionResult> GetEmployeesByDepartment(string department)
+
+        // Parse employee selection from frontend (handles 'ALL' and 'DEPT:XXX' markers)
+        private async Task<List<int>> ParseEmployeeSelection(string employeeIdsJson)
         {
+            if (string.IsNullOrWhiteSpace(employeeIdsJson))
+                return new List<int>();
+
             try
             {
-                var employees = await _ES.GetEmployeesByDepartmentAsync(department);
-                return Json(employees.Select(e => new
+                var selections = JsonConvert.DeserializeObject<List<string>>(employeeIdsJson);
+                var employeeIds = new List<int>();
+
+                foreach (var selection in selections)
                 {
-                    employeeId = e.EmployeeId,
-                    fullName = e.Full_Name,
-                    position = e.Position,
-                    email = e.Email_Address
-                }));
+                    if (selection == "ALL")
+                    {
+                        // Get all employee IDs
+                        var allEmployees = await _ES.GetAllEmployeesAsync();
+                        return allEmployees.Select(e => e.EmployeeId).ToList();
+                    }
+                    else if (selection.StartsWith("DEPT:"))
+                    {
+                        // Get employees from specific department
+                        var department = selection.Substring(5);
+                        var deptEmployees = await _ES.GetEmployeesByDepartmentAsync(department);
+                        employeeIds.AddRange(deptEmployees.Select(e => e.EmployeeId));
+                    }
+                    else if (int.TryParse(selection, out int empId))
+                    {
+                        // Direct employee ID
+                        employeeIds.Add(empId);
+                    }
+                }
+
+                // Remove duplicates
+                return employeeIds.Distinct().ToList();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error fetching employees for department: {department}");
-                return StatusCode(500, "Error fetching employees");
+                _logger.LogError(ex, "Error parsing employee selection");
+                return new List<int>();
             }
         }
+
+        // FR 4.3.1, 4.3.2, 4.3.3: Create DOI tasks with unique access tokens and send email notifications
+
+        // FR 4.3.1, 4.3.2, 4.3.3: Create DOI tasks with unique access tokens and send email notifications
+        private async Task<int> CreateTasksAndSendEmails(
+            int templateId,
+            DateTime dueDate,
+            List<int> employeeIds)
+        {
+            int successCount = 0;
+            var template = await _TS.GetByIdAsync(templateId);
+
+            if (template == null)
+            {
+                throw new Exception($"Template with ID {templateId} not found");
+            }
+
+            foreach (var employeeId in employeeIds)
+            {
+                try
+                {
+                    var employee = await _ES.GetEmployeeByIdAsync(employeeId);
+                    if (employee == null)
+                    {
+                        _logger.LogWarning($"Employee {employeeId} not found, skipping");
+                        continue;
+                    }
+
+                    // FR 4.3.2: Generate unique, non-guessable, time-bound access token
+                    var accessToken = GenerateSecureAccessToken();
+                    var tokenExpiry = dueDate.AddDays(1); // Token valid until 1 day after due date
+
+                    // Create DOI Task record
+                    var task = new DOITask
+                    {
+                        EmployeeId = employeeId,
+                        TemplateId = templateId,
+                        DueDate = dueDate,
+                        Status = "Outstanding", // Initial status
+                        AccessToken = accessToken,
+                        TokenExpiry = tokenExpiry,
+                        CreatedAt = DateTime.UtcNow,
+                        CreatedBy = User.Identity.Name ?? "Admin"
+                    };
+
+                    // Save task to database (this should return the created task with TaskId)
+                    var createdTasks = await _FS.BulkCreateTasksAsync(
+    task.TemplateId,
+    task.DueDate,
+    employeeIds
+);
+
+                    if (createdTasks == null)
+                    {
+                        _logger.LogError($"Failed to create task for employee {employeeId}");
+                        continue;
+                    }
+
+                    //// FR 4.3.3: Send unique email with access link
+                    //var accessLink = GenerateAccessLink(createdTasks.);
+                    //await SendDOIRequestEmail(employee, template, dueDate, accessLink);
+
+                    //_logger.LogInformation(
+                    //    $"Created DOI task {createdTasks.TaskId} for employee {employee.Full_Name} ({employee.Email_Address}) with token"
+                    //);
+
+                    successCount++;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(
+                        ex,
+                        $"Failed to create task for employee {employeeId}"
+                    );
+                    // Continue processing other employees
+                }
+            }
+
+            return successCount;
+        }
+
+        // FR 4.3.2: Generate cryptographically secure, non-guessable access token
+        // Token format: Base64-encoded 32-byte random value (43 characters)
+        private string GenerateSecureAccessToken()
+        {
+            using (var rng = RandomNumberGenerator.Create())
+            {
+                byte[] tokenBytes = new byte[32]; // 256 bits
+                rng.GetBytes(tokenBytes);
+
+                // Convert to URL-safe Base64
+                return Convert.ToBase64String(tokenBytes)
+                    .Replace("+", "-")
+                    .Replace("/", "_")
+                    .TrimEnd('=');
+            }
+        }
+
+        /// <summary>
+        /// Generate unique access link for employee
+        /// Format: https://yourapp.com/employee/task?token={accessToken}
+        /// </summary>
+        private string GenerateAccessLink(string accessToken)
+        {
+            var baseUrl = $"{Request.Scheme}://{Request.Host}";
+            return $"{baseUrl}/employee/task?token={accessToken}";
+        }
+
+        /// <summary>
+        /// FR 4.3.3: Send DOI request email to employee with unique access link
+        /// </summary>
+        private async Task SendDOIRequestEmail(
+            Employee employee,
+            Template template,
+            DateTime dueDate,
+            string accessLink)
+        {
+            var subject = $"Action Required: Complete your {template.TemplateName}";
+
+            var body = $@"
+<html>
+<body style='font-family: Arial, sans-serif; color: #333;'>
+    <div style='max-width: 600px; margin: 0 auto; padding: 20px;'>
+        <h2 style='color: #081B38;'>Declaration of Interest Required</h2>
+        
+        <p>Dear {employee.Full_Name},</p>
+        
+        <p>You are required to complete your <strong>{template.TemplateName}</strong> 
+           by <strong>{dueDate:MMMM d, yyyy h:mm tt}</strong>.</p>
+        
+        <p>Please click the button below to access your personalized declaration form:</p>
+        
+        <div style='text-align: center; margin: 30px 0;'>
+            <a href='{accessLink}' 
+               style='background-color: #00C2CB; color: #081B38; padding: 12px 30px; 
+                      text-decoration: none; border-radius: 50px; display: inline-block;
+                      font-weight: 600;'>
+                Complete Declaration
+            </a>
+        </div>
+        
+        <p style='color: #64748B; font-size: 14px;'>
+            <strong>Important:</strong>
+            <ul>
+                <li>This link is unique to you and should not be shared</li>
+                <li>You can save your progress and return later using the same link</li>
+                <li>The link expires on {dueDate.AddDays(1):MMMM d, yyyy}</li>
+            </ul>
+        </p>
+        
+        <p style='color: #999; font-size: 12px; margin-top: 30px; border-top: 1px solid #ddd; padding-top: 20px;'>
+            If you have any questions or need assistance, please contact your HR or Compliance department.
+            <br><br>
+            <strong>Direct link:</strong> <a href='{accessLink}'>{accessLink}</a>
+            <br><br>
+            This is an automated message from the Compliance & Disclosure Hub (Declarify).
+        </p>
+    </div>
+</body>
+</html>
+";
+
+            await _EmailS.SendMagicLinkAsync(employee.Email_Address, subject, body);
+        }
+
+
         // ============================================================================
         // EMPLOYEE MANAGEMENT (FR 4.1.3)
         // ============================================================================
@@ -515,9 +908,9 @@ namespace Declarify.Controllers
         // Process CSV import (FR 4.1.3)
         //Expected CSV format: EmployeeNumber, Full_Name, Email_Address, Position, Department, ManagerId
 
-        [HttpPost("employees/import")]
+      // [HttpPost("employees/import")]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> ImportEmployees(IFormFile csvFile)
+        public async Task<IActionResult> ImportEmployees1(IFormFile csvFile)
         {
             try
             {
@@ -585,17 +978,398 @@ namespace Declarify.Controllers
                 return RedirectToAction("ImportEmployees");
             }
         }
-      
-        /// Download CSV template for employee import
+
+        [HttpPost("employees/import")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ImportEmployees(IFormFile excelFile)
+        {
+            try
+            {
+                if (!await _LS.IsLicenseValidAsync())
+                    return RedirectToAction("LicenseExpired");
+
+                if (excelFile == null || excelFile.Length == 0)
+                {
+                    TempData["Error"] = "Please select an Excel file to upload.";
+                    return RedirectToAction("ImportEmployees");
+                }
+
+                var extension = Path.GetExtension(excelFile.FileName).ToLowerInvariant();
+                if (extension != ".xlsx" && extension != ".xls")
+                {
+                    TempData["Error"] = "Please upload a valid Excel file (.xlsx or .xls).";
+                    return RedirectToAction("ImportEmployees");
+                }
+
+                _logger.LogInformation($"Processing employee import: {excelFile.FileName}");
+
+                // Parse Excel file
+                var employees = new List<EmployeeImportDto>();
+
+                using (var stream = new MemoryStream())
+                {
+                    await excelFile.CopyToAsync(stream);
+                    stream.Position = 0;
+
+                    try
+                    {
+                        ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+                        using (var package = new ExcelPackage(stream))
+                        {
+                            var worksheet = package.Workbook.Worksheets[0]; // First worksheet
+                            var rowCount = worksheet.Dimension?.Rows ?? 0;
+
+                            if (rowCount < 2) // Must have at least header + 1 data row
+                            {
+                                TempData["Error"] = "Excel file is empty or contains no data rows.";
+                                return RedirectToAction("ImportEmployees");
+                            }
+
+                            // Read data starting from row 2 (row 1 is header)
+                            for (int row = 2; row <= rowCount; row++)
+                            {
+                                // Skip empty rows
+                                if (string.IsNullOrWhiteSpace(worksheet.Cells[row, 1].Text))
+                                    continue;
+
+                                var empDto = new EmployeeImportDto
+                                {
+                                    EmployeeNumber = worksheet.Cells[row, 1].Text?.Trim(),
+                                    Full_Name = worksheet.Cells[row, 2].Text?.Trim(),
+                                    Email_Address = worksheet.Cells[row, 3].Text?.Trim(),
+                                    Position = worksheet.Cells[row, 4].Text?.Trim(),
+                                    Department = worksheet.Cells[row, 5].Text?.Trim(),
+                                    ManagerId = null
+                                };
+
+                                // Parse ManagerId if present
+                                var managerIdText = worksheet.Cells[row, 6].Text?.Trim();
+                                if (!string.IsNullOrWhiteSpace(managerIdText) && int.TryParse(managerIdText, out int managerId))
+                                {
+                                    empDto.ManagerId = managerId;
+                                }
+
+                                employees.Add(empDto);
+                            }
+                        }
+                    }
+                    catch (Exception excelEx)
+                    {
+                        _logger.LogError(excelEx, "Excel parsing error");
+                        TempData["Error"] = $"Excel format error: {excelEx.Message}. Please ensure your Excel file is properly formatted.";
+                        return RedirectToAction("ImportEmployees");
+                    }
+                }
+
+                if (!employees.Any())
+                {
+                    TempData["Error"] = "Excel file contains no valid employee data.";
+                    return RedirectToAction("ImportEmployees");
+                }
+
+                // Process each employee
+                int createdCount = 0, updatedCount = 0, failedCount = 0;
+                var errors = new List<string>();
+
+                // First pass: Create/update all employees without manager assignments
+                foreach (var empDto in employees)
+                {
+                    try
+                    {
+                        // Skip if essential data is missing
+                        if (string.IsNullOrWhiteSpace(empDto.Email_Address) || string.IsNullOrWhiteSpace(empDto.EmployeeNumber))
+                        {
+                            errors.Add($"Skipped row: Missing employee number or email address");
+                            failedCount++;
+                            continue;
+                        }
+
+                        // Check if employee already exists by EmployeeNumber or Email
+                        var existingEmployee = await _db.Employees
+                            .Include(e => e.ApplicationUser)
+                            .FirstOrDefaultAsync(e => e.EmployeeNumber == empDto.EmployeeNumber || e.Email_Address == empDto.Email_Address);
+
+                        Employee employee;
+                        if (existingEmployee != null)
+                        {
+                            // Update existing
+                            existingEmployee.Full_Name = empDto.Full_Name;
+                            existingEmployee.Position = empDto.Position;
+                            existingEmployee.Department = empDto.Department;
+                            existingEmployee.Email_Address = empDto.Email_Address;
+                            // Don't set ManagerId yet - will do in second pass
+                            _db.Employees.Update(existingEmployee);
+                            employee = existingEmployee;
+                            updatedCount++;
+                        }
+                        else
+                        {
+                            // Create new employee
+                            employee = new Employee
+                            {
+                                EmployeeNumber = empDto.EmployeeNumber,
+                                Full_Name = empDto.Full_Name,
+                                Email_Address = empDto.Email_Address,
+                                Position = empDto.Position,
+                                Department = empDto.Department,
+                                IsActive = true
+                                // Don't set ManagerId yet - will do in second pass
+                            };
+                            await _db.Employees.AddAsync(employee);
+                            createdCount++;
+                        }
+
+                        // Save changes to ensure EmployeeId is generated
+                        await _db.SaveChangesAsync();
+
+                        // Create or update ApplicationUser
+                        if (employee.ApplicationUser == null)
+                        {
+                            var user = new ApplicationUser
+                            {
+                                UserName = empDto.Email_Address,
+                                Email = empDto.Email_Address,
+                                EmployeeId = employee.EmployeeId,
+                                Full_Name = empDto.Full_Name,
+                                Position = empDto.Position,
+                                Department = empDto.Department,
+                                IsFirstLogin = true
+                            };
+
+                            var password = "DefaultPassword123!"; // You may want to generate a secure random password
+                            var result = await _userManager.CreateAsync(user, password);
+                            if (!result.Succeeded)
+                            {
+                                errors.Add($"Failed to create user for {empDto.Email_Address}: {string.Join(", ", result.Errors.Select(e => e.Description))}");
+                                failedCount++;
+                                continue;
+                            }
+
+                            // Optionally assign role
+                            await _userManager.AddToRoleAsync(user, "Employee");
+
+                            // Link back to Employee
+                            employee.ApplicationUserId = user.Id;
+                            employee.ApplicationUser = user;
+                            _db.Employees.Update(employee);
+                            await _db.SaveChangesAsync();
+                        }
+                        else
+                        {
+                            // Update existing user
+                            var user = employee.ApplicationUser;
+                            user.Full_Name = employee.Full_Name;
+                            user.Position = employee.Position;
+                            user.Department = employee.Department;
+                            _db.Update(user);
+                            await _db.SaveChangesAsync();
+                        }
+                    }
+                    catch (Exception innerEx)
+                    {
+                        errors.Add($"Failed processing {empDto.Email_Address}: {innerEx.Message}");
+                        failedCount++;
+                    }
+                }
+
+                // Second pass: Assign managers now that all employees exist
+                foreach (var empDto in employees)
+                {
+                    try
+                    {
+                        if (empDto.ManagerId.HasValue && empDto.ManagerId.Value > 0)
+                        {
+                            var employee = await _db.Employees
+                                .FirstOrDefaultAsync(e => e.EmployeeNumber == empDto.EmployeeNumber || e.Email_Address == empDto.Email_Address);
+
+                            if (employee != null)
+                            {
+                                // Find manager by ManagerId
+                                var manager = await _db.Employees.FindAsync(empDto.ManagerId.Value);
+
+                                if (manager != null)
+                                {
+                                    employee.ManagerId = manager.EmployeeId;
+                                    _db.Employees.Update(employee);
+                                    await _db.SaveChangesAsync();
+
+                                    _logger.LogInformation($"Assigned manager {manager.Full_Name} (ID: {manager.EmployeeId}) to employee {employee.Full_Name}");
+                                }
+                                else
+                                {
+                                    errors.Add($"Manager with ID {empDto.ManagerId} not found for {empDto.Email_Address}");
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception innerEx)
+                    {
+                        errors.Add($"Failed assigning manager for {empDto.Email_Address}: {innerEx.Message}");
+                    }
+                }
+
+                TempData["Success"] = $"Import completed: {createdCount} created, {updatedCount} updated, {failedCount} failed";
+                if (errors.Any())
+                {
+                    TempData["ImportErrors"] = string.Join("\n", errors);
+                }
+
+                _logger.LogInformation($"Employee import completed: Created={createdCount}, Updated={updatedCount}, Failed={failedCount}");
+
+                return RedirectToAction("Employees");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error importing employees");
+                TempData["Error"] = $"Failed to import employees: {ex.Message}";
+                return RedirectToAction("ImportEmployees");
+            }
+        }
+
         [HttpGet("employees/download-template")]
         public IActionResult DownloadEmployeeTemplate()
         {
-            var csv = "EmployeeNumber,Full_Name,Email_Address,Position,Department,ManagerId\n";
-            csv += "EMP001,John Doe,john.doe@cityofjoburg.org.za,Senior Manager,Finance,\n";
-          
+            try
+            {
+                ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+                using (var package = new ExcelPackage())
+                {
+                
 
-            var bytes = System.Text.Encoding.UTF8.GetBytes(csv);
-            return File(bytes, "text/csv", "employee_import_template.csv");
+                    var worksheet = package.Workbook.Worksheets.Add("Employee Import Template");
+
+                    // Add headers
+                    worksheet.Cells[1, 1].Value = "EmployeeNumber";
+                    worksheet.Cells[1, 2].Value = "Full_Name";
+                    worksheet.Cells[1, 3].Value = "Email_Address";
+                    worksheet.Cells[1, 4].Value = "Position";
+                    worksheet.Cells[1, 5].Value = "Department";
+                    worksheet.Cells[1, 6].Value = "ManagerId";
+
+                    // Style headers
+                    using (var range = worksheet.Cells[1, 1, 1, 6])
+                    {
+                        range.Style.Font.Bold = true;
+                        range.Style.Fill.PatternType = OfficeOpenXml.Style.ExcelFillStyle.Solid;
+                        range.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.LightBlue);
+                        range.Style.Border.Bottom.Style = OfficeOpenXml.Style.ExcelBorderStyle.Thick;
+                    }
+
+                    // Add sample data
+                    worksheet.Cells[2, 1].Value = "EMP001";
+                    worksheet.Cells[2, 2].Value = "John Doe";
+                    worksheet.Cells[2, 3].Value = "john.doe@cityofjoburg.org.za";
+                    worksheet.Cells[2, 4].Value = "Senior Manager";
+                    worksheet.Cells[2, 5].Value = "Finance";
+                    worksheet.Cells[2, 6].Value = ""; // No manager (top-level)
+
+                    worksheet.Cells[3, 1].Value = "EMP002";
+                    worksheet.Cells[3, 2].Value = "Jane Smith";
+                    worksheet.Cells[3, 3].Value = "jane.smith@cityofjoburg.org.za";
+                    worksheet.Cells[3, 4].Value = "Manager";
+                    worksheet.Cells[3, 5].Value = "IT";
+                    worksheet.Cells[3, 6].Value = 1; // Reports to EmployeeId 1
+
+                    worksheet.Cells[4, 1].Value = "EMP003";
+                    worksheet.Cells[4, 2].Value = "Bob Johnson";
+                    worksheet.Cells[4, 3].Value = "bob.johnson@cityofjoburg.org.za";
+                    worksheet.Cells[4, 4].Value = "Developer";
+                    worksheet.Cells[4, 5].Value = "IT";
+                    worksheet.Cells[4, 6].Value = 2; // Reports to EmployeeId 2
+
+                    worksheet.Cells[5, 1].Value = "EMP004";
+                    worksheet.Cells[5, 2].Value = "Alice Williams";
+                    worksheet.Cells[5, 3].Value = "alice.williams@cityofjoburg.org.za";
+                    worksheet.Cells[5, 4].Value = "Analyst";
+                    worksheet.Cells[5, 5].Value = "Finance";
+                    worksheet.Cells[5, 6].Value = 1; // Reports to EmployeeId 1
+
+                    // Auto-fit columns
+                    worksheet.Cells.AutoFitColumns();
+
+                    // Add instructions in a second sheet
+                    var instructionsSheet = package.Workbook.Worksheets.Add("Instructions");
+                    instructionsSheet.Cells[1, 1].Value = "Employee Import Instructions";
+                    instructionsSheet.Cells[1, 1].Style.Font.Bold = true;
+                    instructionsSheet.Cells[1, 1].Style.Font.Size = 14;
+
+                    instructionsSheet.Cells[3, 1].Value = "Column Descriptions:";
+                    instructionsSheet.Cells[3, 1].Style.Font.Bold = true;
+
+                    instructionsSheet.Cells[4, 1].Value = "• EmployeeNumber: Unique identifier for the employee (required)";
+                    instructionsSheet.Cells[5, 1].Value = "• Full_Name: Employee's full name (required)";
+                    instructionsSheet.Cells[6, 1].Value = "• Email_Address: Employee's email address (required, must be unique)";
+                    instructionsSheet.Cells[7, 1].Value = "• Position: Job title/position";
+                    instructionsSheet.Cells[8, 1].Value = "• Department: Department name";
+                    instructionsSheet.Cells[9, 1].Value = "• ManagerId: Database ID of the manager (leave empty for top-level managers)";
+
+                    instructionsSheet.Cells[11, 1].Value = "Important Notes:";
+                    instructionsSheet.Cells[11, 1].Style.Font.Bold = true;
+
+                    instructionsSheet.Cells[12, 1].Value = "• The first import will create employees with sequential IDs (1, 2, 3, etc.)";
+                    instructionsSheet.Cells[13, 1].Value = "• For subsequent imports, reference the actual EmployeeId from the database";
+                    instructionsSheet.Cells[14, 1].Value = "• Leave ManagerId empty for employees without a manager";
+                    instructionsSheet.Cells[15, 1].Value = "• All employees are imported first, then manager relationships are assigned";
+                    instructionsSheet.Cells[16, 1].Value = "• Default password for new users: DefaultPassword123!";
+
+                    instructionsSheet.Cells.AutoFitColumns();
+
+                    var bytes = package.GetAsByteArray();
+                    return File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "employee_import_template.xlsx");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error generating Excel template");
+                TempData["Error"] = "Failed to generate template file.";
+                return RedirectToAction("ImportEmployees");
+            }
+        }
+
+
+
+        // Alternative method using CsvHelper for guaranteed compatibility
+        [HttpGet("employees/download-template-csvhelper")]
+        public IActionResult DownloadEmployeeTemplateCsvHelper()
+        {
+            using (var memoryStream = new MemoryStream())
+            using (var writer = new StreamWriter(memoryStream, System.Text.Encoding.UTF8))
+            using (var csv = new CsvHelper.CsvWriter(writer, CultureInfo.InvariantCulture))
+            {
+                // Write header
+                csv.WriteField("EmployeeNumber");
+                csv.WriteField("Full_Name");
+                csv.WriteField("Email_Address");
+                csv.WriteField("Position");
+                csv.WriteField("Department");
+                csv.WriteField("ManagerId");
+                csv.NextRecord();
+
+                // Write sample rows
+                var sampleData = new[]
+                {
+            new { EmployeeNumber = "EMP001", Full_Name = "John Doe", Email_Address = "john.doe@cityofjoburg.org.za", Position = "Senior Manager", Department = "Finance", ManagerId = "" },
+            new { EmployeeNumber = "EMP002", Full_Name = "Jane Smith", Email_Address = "jane.smith@cityofjoburg.org.za", Position = "Manager", Department = "IT", ManagerId = "1" },
+            new { EmployeeNumber = "EMP003", Full_Name = "Bob Johnson", Email_Address = "bob.johnson@cityofjoburg.org.za", Position = "Developer", Department = "IT", ManagerId = "2" },
+            new { EmployeeNumber = "EMP004", Full_Name = "Alice Williams", Email_Address = "alice.williams@cityofjoburg.org.za", Position = "Analyst", Department = "Finance", ManagerId = "1" }
+        };
+
+                foreach (var row in sampleData)
+                {
+                    csv.WriteField(row.EmployeeNumber);
+                    csv.WriteField(row.Full_Name);
+                    csv.WriteField(row.Email_Address);
+                    csv.WriteField(row.Position);
+                    csv.WriteField(row.Department);
+                    csv.WriteField(row.ManagerId);
+                    csv.NextRecord();
+                }
+
+                writer.Flush();
+                var bytes = memoryStream.ToArray();
+
+                return File(bytes, "text/csv", "employee_import_template.csv");
+            }
         }
         // View employee details
         [HttpGet("employees/{id}")]
@@ -641,7 +1415,7 @@ namespace Declarify.Controllers
         // ============================================================================
         // Template management view
 
-        [HttpGet("templates")]
+        [HttpGet]
         public async Task<IActionResult> Templates()
         {
             if (!await _LS.IsLicenseValidAsync())
@@ -660,7 +1434,7 @@ namespace Declarify.Controllers
         }
 
         //Create new template form
-        [HttpGet("templates/create")]
+        [HttpGet]
         public async Task<IActionResult> CreateTemplate()
         {
             if (!await _LS.IsLicenseValidAsync())
@@ -672,20 +1446,15 @@ namespace Declarify.Controllers
         }
 
         // Save new template
-        [HttpPost("templates/create")]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> CreateTemplate(TemplateCreateViewModel model)
+        [HttpPost]
+        [IgnoreAntiforgeryToken]
+        public async Task<IActionResult> CreateTemplate([FromBody] TemplateCreateViewModel model)
         {
             try
             {
                 if (!await _LS.IsLicenseValidAsync())
                 {
-                    return RedirectToAction("LicenseExpired");
-                }
-
-                if (!ModelState.IsValid)
-                {
-                    return View(model);
+                    return Json(new { success = false, message = "License expired" });
                 }
 
                 var definition = new TemplateDefinition
@@ -697,16 +1466,15 @@ namespace Declarify.Controllers
 
                 var template = await _TS.CreateAsync(definition);
 
-                TempData["Success"] = $"Template '{template.TemplateName}' created successfully.";
-                return RedirectToAction("Templates");
+                return Json(new { success = true, message = $"Template '{template.TemplateName}' created successfully." });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error creating template");
-                TempData["Error"] = $"Failed to create template: {ex.Message}";
-                return View(model);
+                return Json(new { success = false, message = $"Failed to create template: {ex.Message}" });
             }
         }
+        
         // Edit template form
         [HttpGet("templates/edit/{id}")]
         public async Task<IActionResult> EditTemplate(int id)
@@ -832,7 +1600,7 @@ namespace Declarify.Controllers
         // ============================================================================
         // View all tasks with filtering
 
-        [HttpGet("tasks")]
+        [HttpGet]
         public async Task<IActionResult> Tasks(string status = null, int? templateId = null)
         {
             try
@@ -1138,32 +1906,7 @@ namespace Declarify.Controllers
         }
 
 
-        [HttpGet]
-
-        public async Task<IActionResult> InitialSetup()
-        {
-
-            return View();
-        }
-
-        // POST: Initial Setup - Set password and signature
-        [HttpPost]
-        [AllowAnonymous]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> InitialSetup(InitalSetupViewModel model)
-        {
-            if (!ModelState.IsValid)
-            {
-                await _US.CreateOrUpdateAuthUserAsync(model.Email, model.Password, model.SignatureData);
-              return RedirectToAction("Dashboard");
-            }
-
-
-            return View(model);
-        }
        
-        
-
         public IActionResult Privacy()
         {
             return View();

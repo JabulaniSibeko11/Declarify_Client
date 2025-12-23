@@ -16,5 +16,9 @@ namespace Declarify.Models
 
         // Navigation
         public virtual FormSubmission? Submission { get; set; }
+
+        public bool Success { get; set; }
+        public string? Message { get; set; }
+      
     }
 }

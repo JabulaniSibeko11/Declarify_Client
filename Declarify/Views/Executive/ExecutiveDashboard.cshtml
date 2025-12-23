@@ -1,0 +1,562 @@
+﻿@model Declarify.Models.ViewModels.ExecutiveDashboardViewModel
+@{
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Executive Dashboard - Declarify</title>
+    <link href="~/css/employeedashboardcss.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="employee-dashboard executive-mode">
+        <div class="dashboard-container">
+
+            <!-- Enhanced Executive Header -->
+            <header class="dashboard-header executive-header animate-in">
+                <div class="header-welcome">
+                    <div class="executive-badge">
+                        <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
+                        Executive Dashboard
+                    </div>
+                    <h1>Organizational Compliance Overview</h1>
+                    <p class="header-subtitle">Real-time insights across all departments and regions</p>
+                </div>
+
+                <div class="header-profile-container">
+                    <div class="header-profile" id="profileDropdownTrigger">
+                        <div class="profile-avatar">
+                            @Model.Employee.Full_Name.Substring(0, 1).ToUpper()
+                        </div>
+                        <div class="profile-info">
+                            <h3>@Model.Employee.Full_Name</h3>
+                            <p class="profile-role">@Model.Employee.Position</p>
+                        </div>
+                        <svg class="dropdown-arrow" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </div>
+
+                    <!-- Dropdown Menu -->
+                    <div class="profile-dropdown" id="profileDropdown">
+                        <div class="dropdown-header">
+                            <div class="dropdown-avatar">
+                                @Model.Employee.Full_Name.Substring(0, 1).ToUpper()
+                            </div>
+                            <div>
+                                <h4>@Model.Employee.Full_Name</h4>
+                                <p>@Model.Employee.Email_Address</p>
+                            </div>
+                        </div>
+
+                        <div class="dropdown-divider"></div>
+
+                        <div class="dropdown-section">
+                            <div class="dropdown-section-label">Switch View</div>
+                            <a href="@Url.Action("Dashboard", "Executive")" class="dropdown-item active">
+                                <svg class="dropdown-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                                </svg>
+                                <span>Executive Dashboard</span>
+                                <span class="dropdown-badge">Analytics</span>
+                            </a>
+                            <a href="@Url.Action("Dashboard", "Employee")" class="dropdown-item">
+                                <svg class="dropdown-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                </svg>
+                                <span>My Dashboard</span>
+                            </a>
+                        </div>
+
+                        <div class="dropdown-divider"></div>
+
+                        <div class="dropdown-section">
+                            <a href="@Url.Action("Profile", "Employee")" class="dropdown-item">
+                                <svg class="dropdown-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                </svg>
+                                <span>My Profile</span>
+                            </a>
+                        </div>
+
+                        <div class="dropdown-divider"></div>
+
+                        <div class="dropdown-section">
+                            <a href="@Url.Action("Logout", "Account")" class="dropdown-item logout">
+                                <svg class="dropdown-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                                </svg>
+                                <span>Logout</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Key Performance Indicators - Executive Level -->
+            <div class="executive-kpi-grid">
+                <div class="kpi-card kpi-primary animate-in">
+                    <div class="kpi-content">
+                        <div class="kpi-icon">
+                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </div>
+                        <div class="kpi-details">
+                            <div class="kpi-label">Overall Compliance Rate</div>
+                            <div class="kpi-value">@Model.OverallStats.ComplianceRate.ToString("F1")%</div>
+                            <div class="kpi-target">
+                                Target: 95% •
+                                @if (Model.OverallStats.ComplianceRate >= 95)
+                                {
+                                    <span class="kpi-status success">✓ Target Met</span>
+                                }
+                                else
+                                {
+                                    <span class="kpi-status warning">@((95 - Model.OverallStats.ComplianceRate).ToString("F1"))% to target</span>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                    <div class="kpi-chart">
+                        <canvas id="complianceGauge"></canvas>
+                    </div>
+                </div>
+
+                <div class="kpi-card animate-in">
+                    <div class="kpi-icon-badge success">
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
+                    </div>
+                    <div class="kpi-info">
+                        <div class="kpi-label">Compliant Employees</div>
+                        <div class="kpi-value">@Model.OverallStats.CompliantCount</div>
+                        <div class="kpi-subtitle">of @Model.OverallStats.TotalEmployees total</div>
+                    </div>
+                </div>
+
+                <div class="kpi-card animate-in">
+                    <div class="kpi-icon-badge warning">
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </div>
+                    <div class="kpi-info">
+                        <div class="kpi-label">Outstanding</div>
+                        <div class="kpi-value">@Model.OverallStats.OutstandingCount</div>
+                        <div class="kpi-subtitle">@((Model.OverallStats.OutstandingCount / (double)Model.OverallStats.TotalEmployees * 100).ToString("F1"))% pending</div>
+                    </div>
+                </div>
+
+                <div class="kpi-card animate-in">
+                    <div class="kpi-icon-badge danger">
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                    </div>
+                    <div class="kpi-info">
+                        <div class="kpi-label">Overdue</div>
+                        <div class="kpi-value">@Model.OverallStats.OverdueCount</div>
+                        <div class="kpi-subtitle">@((Model.OverallStats.OverdueCount / (double)Model.OverallStats.TotalEmployees * 100).ToString("F1"))% overdue</div>
+                    </div>
+                </div>
+
+                <div class="kpi-card kpi-highlight animate-in">
+                    <div class="kpi-icon-badge accent">
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                    </div>
+                    <div class="kpi-info">
+                        <div class="kpi-label">Avg. Submission Time</div>
+                        <div class="kpi-value">@Model.OverallStats.AverageSubmissionDays.ToString("F1")</div>
+                        <div class="kpi-subtitle">days from request</div>
+                    </div>
+                </div>
+
+                <div class="kpi-card kpi-highlight animate-in">
+                    <div class="kpi-icon-badge info">
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                    </div>
+                    <div class="kpi-info">
+                        <div class="kpi-label">Total Submissions</div>
+                        <div class="kpi-value">@Model.OverallStats.TotalSubmissions</div>
+                        <div class="kpi-subtitle">this period</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Analytics Dashboard -->
+            <div class="executive-analytics-grid">
+
+                <!-- Compliance by Department -->
+                <div class="analytics-card large animate-in">
+                    <div class="card-header">
+                        <div>
+                            <h3 class="card-title">Compliance by Department</h3>
+                            <p class="card-subtitle">Breakdown across organizational units</p>
+                        </div>
+                        <button class="btn-icon-only">
+                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="card-content">
+                        <canvas id="departmentChart" height="80"></canvas>
+                    </div>
+                </div>
+
+                <!-- Trend Analysis -->
+                <div class="analytics-card large animate-in">
+                    <div class="card-header">
+                        <div>
+                            <h3 class="card-title">Compliance Trend</h3>
+                            <p class="card-subtitle">Weekly submission pattern</p>
+                        </div>
+                        <div class="time-selector">
+                            <button class="time-btn active">7D</button>
+                            <button class="time-btn">30D</button>
+                            <button class="time-btn">90D</button>
+                        </div>
+                    </div>
+                    <div class="card-content">
+                        <canvas id="trendChart" height="80"></canvas>
+                    </div>
+                </div>
+
+                <!-- Risk Heat Map -->
+                <div class="analytics-card medium animate-in">
+                    <div class="card-header">
+                        <div>
+                            <h3 class="card-title">Risk Heat Map</h3>
+                            <p class="card-subtitle">Priority areas requiring attention</p>
+                        </div>
+                    </div>
+                    <div class="card-content">
+                        <div class="risk-grid">
+                            @foreach (var dept in Model.DepartmentStats.OrderByDescending(d => d.OverdueCount).Take(6))
+                            {
+                                var riskLevel = dept.OverdueCount > 10 ? "high" : dept.OverdueCount > 5 ? "medium" : "low";
+                                <div class="risk-item risk-@riskLevel">
+                                    <div class="risk-dept">@dept.DepartmentName</div>
+                                    <div class="risk-count">@dept.OverdueCount overdue</div>
+                                    <div class="risk-bar">
+                                        <div class="risk-fill" style="width: @(Math.Min(dept.OverdueCount * 10, 100))%"></div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Top Performers -->
+                <div class="analytics-card medium animate-in">
+                    <div class="card-header">
+                        <div>
+                            <h3 class="card-title">Top Performing Units</h3>
+                            <p class="card-subtitle">100% compliance achieved</p>
+                        </div>
+                    </div>
+                    <div class="card-content">
+                        <div class="performer-list">
+                            @foreach (var dept in Model.DepartmentStats.Where(d => d.ComplianceRate >= 95).OrderByDescending(d => d.ComplianceRate).Take(5))
+                            {
+                                <div class="performer-item">
+                                    <div class="performer-icon">
+                                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+                                        </svg>
+                                    </div>
+                                    <div class="performer-details">
+                                        <div class="performer-name">@dept.DepartmentName</div>
+                                        <div class="performer-stat">@dept.ComplianceRate.ToString("F0")% • @dept.TotalEmployees employees</div>
+                                    </div>
+                                    <div class="performer-badge success">✓</div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Department Breakdown Table -->
+            <div class="analytics-card full-width animate-in">
+                <div class="card-header">
+                    <div>
+                        <h3 class="card-title">Department Breakdown</h3>
+                        <p class="card-subtitle">Complete organizational overview with drill-down capabilities</p>
+                    </div>
+                    <div class="card-actions">
+                        <button class="btn btn-ghost">
+                            <svg class="btn-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            Export Report
+                        </button>
+                        <button class="btn btn-secondary">
+                            <svg class="btn-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                            </svg>
+                            Filter
+                        </button>
+                    </div>
+                </div>
+                <div class="card-content">
+                    <div class="executive-table-wrapper">
+                        <table class="executive-table">
+                            <thead>
+                                <tr>
+                                    <th>Department</th>
+                                    <th>Total Staff</th>
+                                    <th>Compliant</th>
+                                    <th>Outstanding</th>
+                                    <th>Overdue</th>
+                                    <th>Compliance Rate</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var dept in Model.DepartmentStats.OrderByDescending(d => d.ComplianceRate))
+                                {
+                                    var statusClass = dept.ComplianceRate >= 95 ? "success" : dept.ComplianceRate >= 80 ? "warning" : "danger";
+                                    <tr>
+                                        <td>
+                                            <div class="table-dept">
+                                                <div class="dept-icon">
+                                                    @dept.DepartmentName.Substring(0, 1)
+                                                </div>
+                                                <div>
+                                                    <div class="dept-name">@dept.DepartmentName</div>
+                                                    <div class="dept-meta">@dept.TotalEmployees employees</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="table-value">@dept.TotalEmployees</span>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="table-badge success">@dept.CompliantCount</span>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="table-badge warning">@dept.OutstandingCount</span>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="table-badge danger">@dept.OverdueCount</span>
+                                        </td>
+                                        <td>
+                                            <div class="progress-cell">
+                                                <div class="progress-bar">
+                                                    <div class="progress-fill @statusClass" style="width: @dept.ComplianceRate%"></div>
+                                                </div>
+                                                <span class="progress-text">@dept.ComplianceRate.ToString("F1")%</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="status-badge @statusClass">
+                                                @if (dept.ComplianceRate >= 95)
+                                                {
+                                                    <span>✓ Compliant</span>
+                                                }
+                                                else if (dept.ComplianceRate >= 80)
+                                                {
+                                                    <span>⚠ Monitor</span>
+                                                }
+                                                else
+                                                {
+                                                    <span>⚠ Action Required</span>
+                                                }
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <button class="btn-icon-only" title="View Details">
+                                                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                </svg>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // Profile Dropdown Toggle
+        const profileTrigger = document.getElementById('profileDropdownTrigger');
+        const profileDropdown = document.getElementById('profileDropdown');
+
+        profileTrigger.addEventListener('click', function(e) {
+            e.stopPropagation();
+            profileDropdown.classList.toggle('active');
+        });
+
+        document.addEventListener('click', function(e) {
+            if (!profileTrigger.contains(e.target) && !profileDropdown.contains(e.target)) {
+                profileDropdown.classList.remove('active');
+            }
+        });
+
+        // Compliance Gauge Chart
+        const gaugeCtx = document.getElementById('complianceGauge').getContext('2d');
+        new Chart(gaugeCtx, {
+            type: 'doughnut',
+            data: {
+                datasets: [{
+                    data: [@Model.OverallStats.ComplianceRate, @(100 - Model.OverallStats.ComplianceRate)],
+                    backgroundColor: ['#00C2CB', '#E2E8F0'],
+                    borderWidth: 0,
+                    circumference: 180,
+                    rotation: 270
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '75%',
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { enabled: false }
+                }
+            }
+        });
+
+        // Department Compliance Chart
+        const deptCtx = document.getElementById('departmentChart').getContext('2d');
+        new Chart(deptCtx, {
+            type: 'bar',
+            data: {
+                labels: [@Html.Raw(string.Join(",", Model.DepartmentStats.Select(d => "'" + d.DepartmentName + "'")))],
+                datasets: [
+                    {
+                        label: 'Compliant',
+                        data: [@Html.Raw(string.Join(",", Model.DepartmentStats.Select(d => d.CompliantCount)))],
+                        backgroundColor: '#10B981',
+                        borderRadius: 6
+                    },
+                    {
+                        label: 'Outstanding',
+                        data: [@Html.Raw(string.Join(",", Model.DepartmentStats.Select(d => d.OutstandingCount)))],
+                        backgroundColor: '#F59E0B',
+                        borderRadius: 6
+                    },
+                    {
+                        label: 'Overdue',
+                        data: [@Html.Raw(string.Join(",", Model.DepartmentStats.Select(d => d.OverdueCount)))],
+                        backgroundColor: '#EF4444',
+                        borderRadius: 6
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        stacked: true,
+                        grid: { display: false }
+                    },
+                    y: {
+                        stacked: true,
+                        beginAtZero: true,
+                        grid: { color: '#E2E8F0' }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 15,
+                            usePointStyle: true,
+                            font: { size: 12, family: 'DM Sans' }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Trend Chart
+        const trendCtx = document.getElementById('trendChart').getContext('2d');
+        new Chart(trendCtx, {
+            type: 'line',
+            data: {
+                labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5', 'Week 6', 'Week 7'],
+                datasets: [{
+                    label: 'Compliance Rate',
+                    data: [65, 72, 78, 85, 88, 91, @Model.OverallStats.ComplianceRate],
+                    borderColor: '#00C2CB',
+                    backgroundColor: 'rgba(0, 194, 203, 0.1)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 5,
+                    pointHoverRadius: 7,
+                    pointBackgroundColor: '#FFFFFF',
+                    pointBorderColor: '#00C2CB',
+                    pointBorderWidth: 3
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: false,
+                        min: 60,
+                        max: 100,
+                        grid: { color: '#E2E8F0' },
+                        ticks: {
+                            callback: function(value) {
+                                return value + '%';
+                            }
+                        }
+                    },
+                    x: {
+                        grid: { display: false }
+                    }
+                },
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+
+        // Add animation on scroll
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('.animate-in').forEach(card => {
+            card.style.opacity = '0';
+            card.style.transform = 'translateY(20px)';
+            card.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+            observer.observe(card);
+        });
+    </script>
+</body>
+</html>

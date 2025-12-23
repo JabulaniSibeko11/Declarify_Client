@@ -4,6 +4,7 @@ using Declarify.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Declarify.Data.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251221094041_addEmployeeActiveColumn")]
+    partial class addEmployeeActiveColumn
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -186,9 +189,6 @@ namespace Declarify.Data.Migrations
                     b.Property<string>("Position")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("Region")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<DateTime?>("Signature_Created_Date")
                         .HasColumnType("datetime2");
 
@@ -214,12 +214,6 @@ namespace Declarify.Data.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("SubmissionId"));
 
-                    b.Property<int?>("AssignedManagerId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("AssignedManagerName")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("DigitalAttestation")
                         .HasColumnType("nvarchar(max)");
 
@@ -232,16 +226,6 @@ namespace Declarify.Data.Migrations
 
                     b.Property<int?>("FormTaskTaskId")
                         .HasColumnType("int");
-
-                    b.Property<DateTime?>("ReviewedDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("ReviewerNotes")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("ReviewerSignature")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Status")
                         .HasMaxLength(50)
@@ -270,9 +254,6 @@ namespace Declarify.Data.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("TaskId"));
 
-                    b.Property<string>("AccessToken")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<DateTime>("DueDate")
                         .HasColumnType("datetime2");
 
@@ -287,9 +268,6 @@ namespace Declarify.Data.Migrations
 
                     b.Property<int>("TemplateId")
                         .HasColumnType("int");
-
-                    b.Property<DateTime>("TokenExpiry")
-                        .HasColumnType("datetime2");
 
                     b.HasKey("TaskId");
 
@@ -387,46 +365,6 @@ namespace Declarify.Data.Migrations
                     b.ToTable("Templates");
                 });
 
-            modelBuilder.Entity("Declarify.Models.VerificationAttachment", b =>
-                {
-                    b.Property<int>("VerificationId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("VerificationId"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int?>("InitiatedByEmployeeId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("ResultJson")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("SubmissionId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Type")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<DateTime>("VerifiedDate")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
-                    b.HasKey("VerificationId");
-
-                    b.HasIndex("InitiatedByEmployeeId");
-
-                    b.HasIndex("SubmissionId");
-
-                    b.ToTable("VerificationAttachments");
-                });
-
             modelBuilder.Entity("Declarify.Models.VerificationResult", b =>
                 {
                     b.Property<int>("VerificationId")
@@ -435,17 +373,11 @@ namespace Declarify.Data.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("VerificationId"));
 
-                    b.Property<string>("Message")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("ResultData")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("SubmissionId")
                         .HasColumnType("int");
-
-                    b.Property<bool>("Success")
-                        .HasColumnType("bit");
 
                     b.Property<string>("VerificationType")
                         .HasColumnType("nvarchar(max)");
@@ -649,24 +581,6 @@ namespace Declarify.Data.Migrations
                     b.Navigation("Template");
                 });
 
-            modelBuilder.Entity("Declarify.Models.VerificationAttachment", b =>
-                {
-                    b.HasOne("Declarify.Models.Employee", "InitiatedBy")
-                        .WithMany()
-                        .HasForeignKey("InitiatedByEmployeeId")
-                        .OnDelete(DeleteBehavior.NoAction);
-
-                    b.HasOne("Declarify.Models.FormSubmission", "Submission")
-                        .WithMany("VerificationAttachments")
-                        .HasForeignKey("SubmissionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("InitiatedBy");
-
-                    b.Navigation("Submission");
-                });
-
             modelBuilder.Entity("Declarify.Models.VerificationResult", b =>
                 {
                     b.HasOne("Declarify.Models.FormSubmission", "Submission")
@@ -740,8 +654,6 @@ namespace Declarify.Data.Migrations
 
             modelBuilder.Entity("Declarify.Models.FormSubmission", b =>
                 {
-                    b.Navigation("VerificationAttachments");
-
                     b.Navigation("VerificationResults");
                 });
 

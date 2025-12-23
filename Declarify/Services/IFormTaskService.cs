@@ -6,7 +6,11 @@ namespace Declarify.Services
 {
     public interface IFormTaskService
     {
-        Task BulkCreateTasksAsync(int templateId, DateTime dueDate, List<int> employeeIds); // FR 4.3.1
+        Task<List<FormTask>> BulkCreateTasksAsync(
+       int templateId,
+       DateTime dueDate,
+       List<int> employeeIds);
+        // FR 4.3.1
         Task GenerateAndSendMagicLinksAsync(int bulkRequestId); // FR 4.3.2, FR 4.3.3
         Task SendRemindersAsync(); // Scheduled: on due date & 7 days before (FR 4.3.4)
         Task<int> GetNonCompliantCountAsync();

@@ -1,0 +1,399 @@
+﻿@model Declarify.Models.ViewModels.BulkRequestViewModel
+
+@{
+    ViewData["Title"] = "Send Declaration Requests";
+    Layout = null;
+}
+
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="~/css/bulksrequest.css" rel="stylesheet" />
+
+<div class="hero-gradient">
+    <div class="page-header">
+        <div class="container-custom">
+            <h1 class="page-title">Send Declaration Requests</h1>
+            <p class="page-subtitle">Create and distribute declarations of interest to employees across your organization with intelligent targeting and automated follow-ups.</p>
+        </div>
+    </div>
+</div>
+
+<div class="container-custom">
+    <form asp-action="BulkRequest" method="post" id="bulkRequestForm">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="EmployeeIdsJson" id="employeeIdsJson" />
+
+        <div class="wizard-card">
+            <div class="wizard-steps">
+                <div class="wizard-step active" data-step="1">
+                    <div class="step-number">1</div>
+                    <div class="step-label">Select Template</div>
+                </div>
+                <div class="wizard-step" data-step="2">
+                    <div class="step-number">2</div>
+                    <div class="step-label">Choose Recipients</div>
+                </div>
+                <div class="wizard-step" data-step="3">
+                    <div class="step-number">3</div>
+                    <div class="step-label">Set Timeline</div>
+                </div>
+                <div class="wizard-step" data-step="4">
+                    <div class="step-number">4</div>
+                    <div class="step-label">Review & Send</div>
+                </div>
+            </div>
+
+            <div class="wizard-content">
+                <!-- Step 1: Template Selection -->
+                <div class="step-content active" data-step="1">
+                    <h2 class="section-header">Choose Declaration Template</h2>
+                    <p class="section-description">Select the declaration form template you want employees to complete.</p>
+
+                    <div class="selection-grid">
+                        @foreach (var template in Model.Templates)
+                        {
+                            <div class="selection-card" data-template-id="@template.TemplateId" onclick="selectTemplate(this)">
+                                <div class="checkmark">
+                                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                                        <path d="M11.6667 3.5L5.25 9.91667L2.33333 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                                    </svg>
+                                </div>
+                                <div class="card-title">@template.TemplateName</div>
+                                <p style="color: var(--color-text-muted); font-size: 0.875rem; margin-top: 0.5rem;">@(template.Description ?? "Standard declaration of interest form")</p>
+                                <div class="card-meta">
+                                    <div class="meta-item">
+                                        <svg class="meta-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                        </svg>
+                                        @* <span>@(template.Ser ?? 8) sections</span> *@
+                                    </div>
+                                    <div class="meta-item">
+                                        <svg class="meta-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        <span>~15 min</span>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <!-- Step 2: Employee Selection -->
+                <div class="step-content" data-step="2">
+                    <h2 class="section-header">Select Recipients</h2>
+                    <p class="section-description">Choose which employees should receive this declaration request.</p>
+
+                    <div class="search-box">
+                        <svg class="search-icon" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                        <input type="text" class="form-control-custom" placeholder="Search employees by name, department, or position..." id="employeeSearch" onkeyup="filterEmployees()">
+                    </div>
+
+                    <div class="quick-select">
+                        <button type="button" class="quick-select-btn" onclick="selectAllEmployees()">
+                            <svg style="display: inline; width: 16px; height: 16px; margin-right: 4px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                            </svg>
+                            Select All
+                        </button>
+                        <button type="button" class="quick-select-btn" onclick="clearSelection()">
+                            Clear Selection
+                        </button>
+                    </div>
+
+                    <div id="departmentContainer">
+                        @foreach (var dept in Model.Departments)
+                        {
+                            <div class="department-group">
+                                <div class="department-header" onclick="toggleDepartment(this)">
+                                    <span class="department-name">@dept.Key</span>
+                                    <div style="display: flex; align-items: center; gap: 1rem;">
+                                        <span class="department-count">@dept.Value employees</span>
+                                        <button type="button" class="quick-select-btn" onclick="event.stopPropagation(); selectDepartment('@dept.Key')">Select All</button>
+                                    </div>
+                                </div>
+                                <div class="employee-list" style="display: none;">
+                                    @foreach (var employee in Model.Employees.Where(e => e.Department == dept.Key))
+                                    {
+                                        <div class="employee-item" data-employee-id="@employee.EmployeeId" data-department="@employee.Department" data-name="@employee.Full_Name.ToLower()" onclick="toggleEmployee(this)">
+                                            <div class="employee-checkbox">
+                                                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style="display: none;">
+                                                    <path d="M10 3L4.5 8.5L2 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                                                </svg>
+                                            </div>
+                                            <div class="employee-info">
+                                                <div class="employee-name">@employee.Full_Name</div>
+                                                <div class="employee-role">@employee.Position</div>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <!-- Step 3: Timeline -->
+                <div class="step-content" data-step="3">
+                    <h2 class="section-header">Set Deadline & Schedule</h2>
+                    <p class="section-description">Define when employees must complete their declarations.</p>
+
+                    <div style="max-width: 600px;">
+                        <div class="form-group">
+                            <label class="form-label">Due Date *</label>
+                            <input type="datetime-local" name="DueDate" class="form-control-custom" value="@Model.SuggestedDueDate.ToString("yyyy-MM-ddTHH:mm")" required>
+                            <small style="color: var(--color-text-muted); display: block; margin-top: 0.5rem;">
+                                Employees will receive automated reminders 7 days before and on the due date.
+                            </small>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Priority Level</label>
+                            <select class="form-control-custom">
+                                <option>Standard (30 day deadline)</option>
+                                <option>High Priority (14 day deadline)</option>
+                                <option>Urgent (7 day deadline)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 4: Review & Send -->
+                <div class="step-content" data-step="4">
+                    <h2 class="section-header">Review Request Summary</h2>
+                    <p class="section-description">Confirm the details before sending declaration requests.</p>
+
+                    <div class="summary-box">
+                        <div class="summary-grid">
+                            <div class="summary-item">
+                                <h3 id="summaryEmployeeCount">0</h3>
+                                <p>Employees Selected</p>
+                            </div>
+                            <div class="summary-item">
+                                <h3 id="summaryDepartmentCount">0</h3>
+                                <p>Departments Affected</p>
+                            </div>
+                            <div class="summary-item">
+                                <h3 id="summaryDueDate">-</h3>
+                                <p>Days Until Due</p>
+                            </div>
+                            <div class="summary-item">
+                                <h3 id="summaryTemplateName">-</h3>
+                                <p>Template</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="background: #FEF3C7; border-left: 4px solid var(--color-warning); padding: 1.5rem; border-radius: 8px; margin-bottom: 2rem;">
+                        <div style="display: flex; gap: 1rem;">
+                            <svg style="width: 24px; height: 24px; color: var(--color-warning); flex-shrink: 0;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                            <div>
+                                <strong style="display: block; margin-bottom: 0.25rem;">Ready to Send</strong>
+                                <span style="font-size: 0.875rem; color: var(--color-text-main);">
+                                    Once sent, each employee will receive a unique, secure link via email. This action cannot be undone.
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="wizard-actions">
+                <button type="button" class="btn-secondary-custom" id="prevBtn" onclick="changeStep(-1)" style="display: none;">
+                    ← Previous
+                </button>
+                <div style="display: flex; gap: 1rem;">
+                    <button type="button" class="btn-secondary-custom" onclick="window.location.href='@Url.Action("Index")'">
+                        Cancel
+                    </button>
+                    <button type="button" class="btn-primary-custom" id="nextBtn" onclick="changeStep(1)">
+                        Next Step →
+                    </button>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+    let currentStep = 1;
+    let selectedTemplateId = null;
+    let selectedEmployees = new Set();
+
+    function selectTemplate(element) {
+        document.querySelectorAll('.selection-card').forEach(card => card.classList.remove('selected'));
+        element.classList.add('selected');
+        selectedTemplateId = element.getAttribute('data-template-id');
+        document.querySelector('input[name="TemplateId"]')?.remove();
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'TemplateId';
+        input.value = selectedTemplateId;
+        document.getElementById('bulkRequestForm').appendChild(input);
+    }
+
+    function toggleEmployee(element) {
+        const employeeId = element.getAttribute('data-employee-id');
+        element.classList.toggle('selected');
+        const checkbox = element.querySelector('.employee-checkbox svg');
+
+        if (element.classList.contains('selected')) {
+            selectedEmployees.add(employeeId);
+            checkbox.style.display = 'block';
+        } else {
+            selectedEmployees.delete(employeeId);
+            checkbox.style.display = 'none';
+        }
+    }
+
+    function toggleDepartment(header) {
+        const list = header.nextElementSibling;
+        list.style.display = list.style.display === 'none' ? 'grid' : 'none';
+    }
+
+    function selectDepartment(department) {
+        document.querySelectorAll(`.employee-item[data-department="${department}"]`).forEach(item => {
+            if (!item.classList.contains('selected')) {
+                toggleEmployee(item);
+            }
+        });
+    }
+
+    function selectAllEmployees() {
+        document.querySelectorAll('.employee-item').forEach(item => {
+            if (!item.classList.contains('selected')) {
+                toggleEmployee(item);
+            }
+        });
+    }
+
+    function clearSelection() {
+        document.querySelectorAll('.employee-item.selected').forEach(item => {
+            toggleEmployee(item);
+        });
+    }
+
+    function filterEmployees() {
+        const search = document.getElementById('employeeSearch').value.toLowerCase();
+        document.querySelectorAll('.employee-item').forEach(item => {
+            const name = item.getAttribute('data-name');
+            item.style.display = name.includes(search) ? 'flex' : 'none';
+        });
+    }
+
+    function changeStep(direction) {
+        if (direction === 1 && !validateStep(currentStep)) return;
+
+        const newStep = currentStep + direction;
+        if (newStep < 1 || newStep > 4) return;
+
+        document.querySelectorAll('.step-content').forEach(content => content.classList.remove('active'));
+        document.querySelectorAll('.wizard-step').forEach(step => step.classList.remove('active'));
+
+        document.querySelector(`.step-content[data-step="${newStep}"]`).classList.add('active');
+        document.querySelector(`.wizard-step[data-step="${newStep}"]`).classList.add('active');
+
+        currentStep = newStep;
+
+        document.getElementById('prevBtn').style.display = currentStep === 1 ? 'none' : 'block';
+
+        const nextBtn = document.getElementById('nextBtn');
+        if (currentStep === 4) {
+            nextBtn.textContent = 'Send Declarations';
+            nextBtn.onclick = submitForm;
+            updateSummary();
+        } else {
+            nextBtn.textContent = 'Next Step →';
+            nextBtn.onclick = () => changeStep(1);
+        }
+
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function validateStep(step) {
+        if (step === 1) {
+            if (!selectedTemplateId) {
+                alert('Please select a template before continuing.');
+                return false;
+            }
+        }
+
+        if (step === 2) {
+            if (selectedEmployees.size === 0) {
+                alert('Please select at least one employee before continuing.');
+                return false;
+            }
+        }
+
+        if (step === 3) {
+            const dueDate = document.querySelector('input[name="DueDate"]').value;
+            if (!dueDate) {
+                alert('Please set a due date before continuing.');
+                return false;
+            }
+            const dueDateObj = new Date(dueDate);
+            if (dueDateObj <= new Date()) {
+                alert('Due date must be in the future.');
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    function updateSummary() {
+        // Employee count
+        document.getElementById('summaryEmployeeCount').textContent = selectedEmployees.size;
+
+        // Department count
+        const departments = new Set();
+        selectedEmployees.forEach(id => {
+            const item = document.querySelector(`.employee-item[data-employee-id="${id}"]`);
+            if (item) {
+                departments.add(item.getAttribute('data-department'));
+            }
+        });
+        document.getElementById('summaryDepartmentCount').textContent = departments.size;
+
+        // Days until due
+        const dueDate = new Date(document.querySelector('input[name="DueDate"]').value);
+        const today = new Date();
+        const daysUntil = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
+        document.getElementById('summaryDueDate').textContent = daysUntil;
+
+        // Template name
+        const selectedCard = document.querySelector('.selection-card.selected');
+        if (selectedCard) {
+            const templateName = selectedCard.querySelector('.card-title').textContent;
+            document.getElementById('summaryTemplateName').textContent = templateName.split(' ')[0];
+        }
+    }
+
+    function submitForm() {
+        if (!validateStep(4)) return;
+
+        // Convert Set to Array of strings (as backend expects)
+        const employeeArray = Array.from(selectedEmployees).map(id => String(id));
+        document.getElementById('employeeIdsJson').value = JSON.stringify(employeeArray);
+
+        console.log('Submitting employees:', employeeArray); // Debug log
+        console.log('JSON value:', document.getElementById('employeeIdsJson').value); // Debug log
+
+        // Show confirmation
+        const confirmMsg = `You are about to send declaration requests to ${selectedEmployees.size} employees. Continue?`;
+        if (confirm(confirmMsg)) {
+            document.getElementById('bulkRequestForm').submit();
+        }
+    }
+
+    // Auto-expand first department on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        const firstDepartment = document.querySelector('.department-header');
+        if (firstDepartment) {
+            firstDepartment.click();
+        }
+    });
+</script>

@@ -75,6 +75,7 @@
                 <form asp-action="InitialSetup" method="post" id="setupForm">
                     <input type="hidden" asp-for="Email" />
                     <input type="hidden" asp-for="Token" />
+                    <!-- CRITICAL: This MUST have both id AND asp-for -->
                     <input type="hidden" asp-for="SignatureData" id="signatureDataInput" />
 
                     <!-- Step 1: Password Setup -->
@@ -152,9 +153,10 @@
                                 <button type="button" class="btn-secondary" id="clearSignature">
                                     Clear
                                 </button>
-                                <button type="button" class="btn-secondary" id="backToPassword">
-                                    Back
+                                <button type="button" class="btn-secondary" id="saveSignatureBtn">
+                                    Save Signature
                                 </button>
+
                             </div>
                         </div>
 

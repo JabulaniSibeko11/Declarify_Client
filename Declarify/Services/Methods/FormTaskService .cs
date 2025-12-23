@@ -24,7 +24,12 @@ namespace Declarify.Services.Methods
         }
         // Bulk create DOI tasks for multiple employees (FR 4.3.1)
         // CRITICAL: This is the primary workflow for Admin to initiate DOI collection
-        public async Task BulkCreateTasksAsync(int templateId, DateTime dueDate, List<int> employeeIds)
+        // Bulk create DOI tasks for multiple employees (FR 4.3.1, 4.3.2, 4.3.3)
+        // CRITICAL: This is the primary workflow for Admin to initiate DOI collection
+        public async Task<List<FormTask>> BulkCreateTasksAsync(
+       int templateId,
+       DateTime dueDate,
+       List<int> employeeIds)
         {
             // Validate template exists and is active
             var template = await _context.Templates.FindAsync(templateId);
@@ -40,10 +45,12 @@ namespace Declarify.Services.Methods
 
             if (employees.Count != employeeIds.Count)
             {
-                _logger.LogWarning($"Some employee IDs not found. Requested: {employeeIds.Count}, Found: {employees.Count}");
+                _logger.LogWarning(
+                    $"Some employee IDs not found. Requested: {employeeIds.Count}, Found: {employees.Count}");
             }
 
             var createdTasks = new List<FormTask>();
+            var baseUrl = _configuration["Application:BaseUrl"] ?? "https://declarify.local";
 
             foreach (var employee in employees)
             {
@@ -56,16 +63,24 @@ namespace Declarify.Services.Methods
 
                 if (existingTask != null)
                 {
-                    _logger.LogInformation($"Employee {employee.EmployeeId} already has outstanding task {existingTask.TaskId}, skipping");
+                    _logger.LogInformation(
+                        $"Employee {employee.EmployeeId} already has outstanding task {existingTask.TaskId}, skipping");
                     continue;
                 }
+
+                // FR 4.3.2: Generate unique, non-guessable, time-bound access token
+                var accessToken = GenerateSecureToken();
+                var tokenExpiry = dueDate.AddDays(1); // Token valid until 1 day after due date
 
                 var task = new FormTask
                 {
                     EmployeeId = employee.EmployeeId,
                     TemplateId = templateId,
                     DueDate = dueDate,
-                    Status = "Outstanding"
+                    Status = "Outstanding",
+                    AccessToken = accessToken,
+                    TokenExpiry = tokenExpiry,
+                    // CreatedAt = DateTime.UtcNow
                 };
 
                 _context.DOITasks.Add(task);
@@ -74,11 +89,160 @@ namespace Declarify.Services.Methods
 
             await _context.SaveChangesAsync();
 
-            _logger.LogInformation($"Bulk created {createdTasks.Count} DOI tasks for template {templateId} with due date {dueDate:yyyy-MM-dd}");
+            _logger.LogInformation(
+                $"Bulk created {createdTasks.Count} DOI tasks for template {templateId} with due date {dueDate:yyyy-MM-dd}");
 
-            // Generate and send magic links immediately after task creation
-            await GenerateAndSendMagicLinksAsync(createdTasks);
+            // FR 4.3.3: Send unique email links to each employee
+            await SendTaskNotificationsAsync(createdTasks, template);
+
+            // ✅ REQUIRED: return the created tasks
+            return createdTasks;
         }
+
+
+        // FR 4.3.3: Send unique email with access link to employees
+        private async Task SendTaskNotificationsAsync(List<FormTask> tasks, Template template)
+        {
+            var baseUrl = _configuration["Application:BaseUrl"] ?? "https://declarify.local";
+            int successCount = 0;
+            int failureCount = 0;
+
+            foreach (var task in tasks)
+            {
+                try
+                {
+                    // Load employee details if not already loaded
+                    if (task.Employee == null)
+                    {
+                        task.Employee = await _context.Employees.FindAsync(task.EmployeeId);
+                    }
+
+                    if (task.Employee == null || string.IsNullOrEmpty(task.Employee.Email_Address))
+                    {
+                        _logger.LogWarning($"Cannot send email for task {task.TaskId} - employee not found or no email");
+                        failureCount++;
+                        continue;
+                    }
+
+                    // FR 4.3.2: Generate unique access link using the stored token
+                    var accessLink = $"{baseUrl}/employee/task?token={task.AccessToken}";
+
+                    // FR 4.3.3: Send email with unique access link
+                    await SendDOIRequestEmail(task.Employee, template, task.DueDate, accessLink, task.TokenExpiry);
+
+                    successCount++;
+                    _logger.LogInformation($"Sent DOI request to {task.Employee.Email_Address} for task {task.TaskId}");
+                }
+                catch (Exception ex)
+                {
+                    failureCount++;
+                    _logger.LogError(ex, $"Failed to send email for task {task.TaskId}");
+                }
+            }
+
+            _logger.LogInformation($"Email notification complete. Success: {successCount}, Failed: {failureCount}");
+        }
+        // FR 4.3.3: Send DOI request email to employee with unique access link
+        private async Task SendDOIRequestEmail(
+            Employee employee,
+            Template template,
+            DateTime dueDate,
+            string accessLink,
+            DateTime tokenExpiry)
+        {
+            var subject = $"Action Required: Complete your {template.TemplateName}";
+
+            var body = $@"
+<html>
+<body style='font-family: Arial, sans-serif; color: #333;'>
+    <div style='max-width: 600px; margin: 0 auto; padding: 20px; background: #F8FAFC;'>
+        <!-- Header with branding -->
+        <div style='background: linear-gradient(135deg, #081B38 0%, #0D2B5E 100%); padding: 2rem; border-radius: 12px 12px 0 0; text-align: center;'>
+            <h1 style='color: #00C2CB; margin: 0; font-size: 2rem; font-weight: 700;'>
+                Declar<span style='color: #00E5FF;'>ify</span>
+            </h1>
+            <p style='color: rgba(255,255,255,0.8); margin: 0.5rem 0 0 0; font-size: 0.875rem;'>
+                Compliance & Disclosure Hub
+            </p>
+        </div>
+
+        <!-- Content -->
+        <div style='background: white; padding: 2rem; border-radius: 0 0 12px 12px; box-shadow: 0 4px 20px rgba(8, 27, 56, 0.08);'>
+            <h2 style='color: #081B38; margin-top: 0; font-size: 1.5rem;'>Declaration of Interest Required</h2>
+            
+            <p style='color: #1E293B; line-height: 1.6;'>Dear <strong>{employee.Full_Name}</strong>,</p>
+            
+            <p style='color: #1E293B; line-height: 1.6;'>
+                You are required to complete your <strong>{template.TemplateName}</strong> 
+                by <strong style='color: #081B38;'>{dueDate:MMMM d, yyyy} at {dueDate:h:mm tt}</strong>.
+            </p>
+            
+            <p style='color: #1E293B; line-height: 1.6;'>
+                Please click the button below to access your personalized declaration form:
+            </p>
+            
+            <!-- CTA Button -->
+            <div style='text-align: center; margin: 2rem 0;'>
+                <a href='{accessLink}' 
+                   style='background-color: #00C2CB; color: #081B38; padding: 14px 32px; 
+                          text-decoration: none; border-radius: 50px; display: inline-block;
+                          font-weight: 600; font-size: 0.875rem; box-shadow: 0 4px 12px rgba(0, 194, 203, 0.3);'>
+                    Complete Declaration Now
+                </a>
+            </div>
+            
+            <!-- Important Info Box -->
+            <div style='background: #FEF3C7; border-left: 4px solid #F59E0B; padding: 1rem; border-radius: 8px; margin: 1.5rem 0;'>
+                <p style='margin: 0; color: #1E293B; font-weight: 600; font-size: 0.875rem;'>
+                    ⚠️ Important Information:
+                </p>
+                <ul style='margin: 0.5rem 0 0 0; padding-left: 1.25rem; color: #1E293B; font-size: 0.875rem;'>
+                    <li>This link is unique to you and should not be shared</li>
+                    <li>You can save your progress and return later using the same link</li>
+                    <li>The link expires on <strong>{tokenExpiry:MMMM d, yyyy}</strong></li>
+                    <li>Automated reminders will be sent if the declaration is not completed</li>
+                </ul>
+            </div>
+
+            <!-- Direct Link (fallback) -->
+            <div style='background: #F8FAFC; padding: 1rem; border-radius: 8px; margin-top: 1.5rem;'>
+                <p style='margin: 0 0 0.5rem 0; color: #64748B; font-size: 0.75rem; font-weight: 600; text-transform: uppercase;'>
+                    Direct Link (if button doesn't work):
+                </p>
+                <p style='margin: 0; word-break: break-all;'>
+                    <a href='{accessLink}' style='color: #00C2CB; font-size: 0.75rem;'>{accessLink}</a>
+                </p>
+            </div>
+        </div>
+        
+        <!-- Footer -->
+        <div style='text-align: center; padding: 1.5rem 0; color: #64748B; font-size: 0.75rem;'>
+            <p style='margin: 0 0 0.5rem 0;'>
+                If you have any questions or need assistance, please contact your HR or Compliance department.
+            </p>
+            <p style='margin: 0; color: #94A3B8;'>
+                This is an automated message from the Compliance & Disclosure Hub (Declarify).
+                <br>Do not reply to this email.
+            </p>
+        </div>
+    </div>
+</body>
+</html>
+";
+
+            await _emailService.SendMagicLinkAsync(employee.Email_Address, subject, body);
+        }
+
+        // DEPRECATED: Legacy method - use BulkCreateTasksAsync instead
+     
+        // DEPRECATED: Legacy method
+        [Obsolete("Use BulkCreateTasksAsync which includes token generation")]
+        public async Task GenerateAndSendMagicLinksAsync(int bulkRequestId)
+        {
+            _logger.LogWarning("GenerateAndSendMagicLinksAsync(int) is deprecated.");
+        }
+
+
         // Generate unique magic links and send emails to employees (FR 4.3.2, FR 4.3.3)
         // CRITICAL: Links must be non-guessable and time-bound
         public async Task GenerateAndSendMagicLinksAsync(List<FormTask> tasks)
@@ -128,18 +292,18 @@ namespace Declarify.Services.Methods
             _logger.LogInformation($"Magic link generation complete. Success: {successCount}, Failed: {failureCount}");
         }
         // Overload for bulk request ID (legacy support)
-        public async Task GenerateAndSendMagicLinksAsync(int bulkRequestId)
-        {
-            // In a more complex system, you might have a BulkRequest entity
-            // For now, we'll retrieve tasks by template and date range
-            var tasks = await _context.DOITasks
-                .Where(t => t.Status == "Outstanding")
-                .OrderByDescending(t => t.TaskId)
-                .Take(100) // Reasonable batch size
-                .ToListAsync();
+        //public async Task GenerateAndSendMagicLinksAsync(int bulkRequestId)
+        //{
+        //    // In a more complex system, you might have a BulkRequest entity
+        //    // For now, we'll retrieve tasks by template and date range
+        //    var tasks = await _context.DOITasks
+        //        .Where(t => t.Status == "Outstanding")
+        //        .OrderByDescending(t => t.TaskId)
+        //        .Take(100) // Reasonable batch size
+        //        .ToListAsync();
 
-            await GenerateAndSendMagicLinksAsync(tasks);
-        }
+        //    await GenerateAndSendMagicLinksAsync(tasks);
+        //}
         // Send automated reminders to non-compliant employees (FR 4.3.4)
         // CRITICAL: Should be called by scheduled job
         // - 7 days before due date

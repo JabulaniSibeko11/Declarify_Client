@@ -1,0 +1,517 @@
+﻿@model Declarify.Models.ViewModels.ReviewSubmissionViewModel
+@using System.Text.Json
+@{
+    Layout = null;
+
+    // Parse template configuration with correct property mapping
+    var templateConfig = !string.IsNullOrEmpty(Model.TemplateConfig)
+        ? JsonSerializer.Deserialize<TemplateConfig>(Model.TemplateConfig, new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        })
+        : new TemplateConfig();
+
+    // Parse submitted form data
+    var formData = !string.IsNullOrEmpty(Model.FormData)
+        ? JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(Model.FormData)
+        : new Dictionary<string, JsonElement>();
+
+    // Parse the digital attestation if it exists
+    var hasAttestation = !string.IsNullOrEmpty(Model.DigitalAttestation);
+    Dictionary<string, JsonElement>? attestationData = null;
+
+    if (hasAttestation)
+    {
+        try
+        {
+            attestationData = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(Model.DigitalAttestation);
+        }
+        catch { }
+    }
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Review Declaration - Declarify</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="~/css/reviewpagecss.css" rel="stylesheet" />
+</head>
+<body>
+    <!-- Hero Header -->
+    <div class="hero-header">
+        <div class="container">
+            <div class="hero-content">
+                <h1 class="hero-title">
+                    Review & <span class="accent">Sign-Off</span>
+                </h1>
+                <p class="hero-subtitle">
+                    Declaration submitted by @Model.EmployeeName on @Model.SubmittedDate.ToString("MMMM dd, yyyy")
+                </p>
+
+                <div class="hero-meta">
+                    <div class="meta-item">
+                        <svg class="meta-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <span>@Model.SubmittedDate.ToString("MMMM dd, yyyy HH:mm")</span>
+                    </div>
+                    <div class="meta-item">
+                        <svg class="meta-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span class="status-badge">@Model.SubmissionStatus</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="container form-wrapper">
+        <!-- Welcome Banner -->
+        <div class="welcome-banner">
+            <svg class="welcome-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span class="welcome-text">Reviewing submission from <strong>@Model.EmployeeName</strong></span>
+        </div>
+
+        <!-- Employee Details Section -->
+        <div class="form-card user-details-card">
+            <div class="section-header">
+                <span class="section-number user-icon">
+                    <svg style="width: 24px; height: 24px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                </span>
+                <span>Employee Details</span>
+            </div>
+            <p class="section-description">Information from the employee's profile</p>
+
+            <div class="user-details-grid">
+                <div class="detail-item">
+                    <div class="detail-label">Full Name</div>
+                    <div class="detail-value">@Model.EmployeeName</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Position</div>
+                    <div class="detail-value">@Model.Position</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Department</div>
+                    <div class="detail-value">@Model.Department</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Submission Date</div>
+                    <div class="detail-value">@Model.SubmittedDate.ToString("MMM dd, yyyy HH:mm")</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Form Sections with Submitted Data -->
+        @if (templateConfig?.Sections != null && templateConfig.Sections.Any())
+        {
+            var orderedSections = templateConfig.Sections.OrderBy(s => s.SectionOrder).ToList();
+
+            for (int i = 0; i < orderedSections.Count; i++)
+            {
+                var sec = orderedSections[i];
+                var sectionIndex = i + 1;
+
+                <div class="form-card" data-section="@sectionIndex" data-section-id="@sec.SectionId">
+                    <div class="section-header">
+                        <span class="section-number">@sectionIndex</span>
+                        <span>@sec.SectionTitle</span>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(sec.Disclaimer))
+                    {
+                        <p class="section-description">@sec.Disclaimer</p>
+                    }
+
+                    @if (sec.Fields != null && sec.Fields.Any())
+                    {
+                        var orderedFields = sec.Fields.OrderBy(f => f.Order).ToList();
+
+                        foreach (var field in orderedFields)
+                        {
+                            // Get the submitted value for this field
+                            string fieldValue = "";
+                            if (formData.TryGetValue(field.FieldId, out JsonElement valueElement))
+                            {
+                                fieldValue = valueElement.ValueKind switch
+                                {
+                                    JsonValueKind.String => valueElement.GetString() ?? "",
+                                    JsonValueKind.True => "true",
+                                    JsonValueKind.False => "false",
+                                    JsonValueKind.Number => valueElement.ToString(),
+                                    _ => valueElement.ToString()
+                                };
+                            }
+
+                            <div class="form-group" data-field-id="@field.FieldId">
+                                @switch (field.FieldType.ToLower())
+                                {
+                                    case "text":
+                                    case "email":
+                                    case "number":
+                                        <label class="form-label @(field.Required ? "required" : "")" for="@field.FieldId">
+                                            @field.FieldLabel
+                                        </label>
+                                        <div class="field-display @(string.IsNullOrWhiteSpace(fieldValue) ? "empty" : "")">
+                                            @(string.IsNullOrWhiteSpace(fieldValue) ? "No information provided" : fieldValue)
+                                        </div>
+                                        break;
+
+                                    case "date":
+                                        <label class="form-label @(field.Required ? "required" : "")" for="@field.FieldId">
+                                            @field.FieldLabel
+                                        </label>
+                                        <div class="field-display @(string.IsNullOrWhiteSpace(fieldValue) ? "empty" : "")">
+                                            @if (!string.IsNullOrWhiteSpace(fieldValue) && DateTime.TryParse(fieldValue, out DateTime dateValue))
+                                            {
+                                                @dateValue.ToString("MMMM dd, yyyy")
+                                            }
+                                            else
+                                            {
+                                                <text>No date provided</text>
+                                            }
+                                        </div>
+                                        break;
+
+                                    case "textarea":
+                                        <label class="form-label @(field.Required ? "required" : "")" for="@field.FieldId">
+                                            @field.FieldLabel
+                                        </label>
+                                        <div class="field-display @(string.IsNullOrWhiteSpace(fieldValue) ? "empty" : "")" style="white-space: pre-wrap;">
+                                            @(string.IsNullOrWhiteSpace(fieldValue) ? "No information provided" : fieldValue)
+                                        </div>
+                                        break;
+
+                                    case "select":
+                                    case "dropdown":
+                                        <label class="form-label @(field.Required ? "required" : "")" for="@field.FieldId">
+                                            @field.FieldLabel
+                                        </label>
+                                        <div class="field-display @(string.IsNullOrWhiteSpace(fieldValue) ? "empty" : "")">
+                                            @(string.IsNullOrWhiteSpace(fieldValue) ? "No selection made" : fieldValue)
+                                        </div>
+                                        break;
+
+                                    case "checkbox":
+                                        <div class="checkbox-group">
+                                            <div class="checkbox-item">
+                                                @{
+                                                    var isChecked = fieldValue?.ToLower() == "true";
+                                                }
+                                                @if (isChecked)
+                                                {
+                                                    <div class="checkbox-display">
+                                                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                        </svg>
+                                                        <span><strong>@field.FieldLabel</strong></span>
+                                                    </div>
+                                                }
+                                                else
+                                                {
+                                                    <div class="field-display empty">
+                                                        ☐ @field.FieldLabel (Not checked)
+                                                    </div>
+                                                }
+                                            </div>
+                                        </div>
+                                        break;
+
+                                    case "radio":
+                                        <label class="form-label @(field.Required ? "required" : "")">
+                                            @field.FieldLabel
+                                        </label>
+                                        <div class="radio-display">
+                                            @if (!string.IsNullOrWhiteSpace(fieldValue))
+                                            {
+                                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                </svg>
+                                                <span>@fieldValue</span>
+                                            }
+                                            else
+                                            {
+                                                <div class="field-display empty">No selection made</div>
+                                            }
+                                        </div>
+                                        break;
+                                }
+                            </div>
+                        }
+                    }
+                </div>
+            }
+        }
+        else
+        {
+            <!-- Fallback if template config is not available -->
+            <div class="form-card">
+                <div class="section-header">
+                    <span class="section-number">1</span>
+                    <span>Submission Data</span>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Raw Form Data</label>
+                    <div class="field-display" style="white-space: pre-wrap;">
+                        @Model.FormData
+                    </div>
+                </div>
+            </div>
+        }
+
+        <!-- Digital Attestation Display -->
+        @if (hasAttestation && attestationData != null)
+        {
+            <div class="attestation-display">
+                <h3>
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0121 12c0 5.523-4.477 10-10 10S1 17.523 1 12 5.477 2 11 2c1.821 0 3.532.448 5.047 1.238" />
+                    </svg>
+                    Employee Digital Attestation
+                </h3>
+
+                <div class="attestation-text">
+                    <strong>Employee Declaration:</strong><br>
+                    "@Model.EmployeeName declares that the information provided above is true, complete, and accurate to the best of their knowledge."
+                </div>
+
+                @if (attestationData.TryGetValue("signature", out var signatureElement))
+                {
+                    var signatureData = signatureElement.GetString();
+                    if (!string.IsNullOrEmpty(signatureData))
+                    {
+                        <div class="signature-container">
+                            <h4>Digital Signature</h4>
+                            <img src="@signatureData" alt="Employee Signature" class="signature-image" />
+                            <p class="signature-date">
+                                Digitally signed on: @Model.SubmittedDate.ToString("MMMM dd, yyyy 'at' HH:mm")
+                            </p>
+                        </div>
+                    }
+                }
+            </div>
+        }
+
+        <!-- Review Actions Panel -->
+        <div class="review-actions-panel">
+            <div class="status-indicator">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Awaiting Your Review
+            </div>
+
+            <div class="alert">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                </svg>
+                <div>
+                    <strong>Important:</strong> Review all information carefully before approving or requesting revisions. Your decision will be recorded with a timestamp.
+                </div>
+            </div>
+
+            <form id="reviewForm">
+                <!-- Review Notes -->
+                <div class="form-group">
+                    <label class="form-label" for="reviewerNotes">Reviewer Notes (Optional)</label>
+                    <textarea id="reviewerNotes"
+                              name="reviewerNotes"
+                              class="form-textarea"
+                              placeholder="Add any comments or observations about this submission..."></textarea>
+                </div>
+
+                <div class="divider"></div>
+
+                <!-- Action Buttons -->
+                <div class="action-buttons">
+                    <button type="button" class="btn btn-success" id="approveBtn" onclick="showApprovalModal()">
+                        <svg class="btn-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Approve Declaration
+                    </button>
+
+                    <button type="button" class="btn btn-danger" id="rejectBtn" onclick="showRejectionModal()">
+                        <svg class="btn-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Request Revision
+                    </button>
+
+                    <a href="@Url.Action("Dashboard", "Employee")" class="btn btn-ghost">
+                        <svg class="btn-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                        </svg>
+                        Back to Dashboard
+                        </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Approval Confirmation Modal -->
+    <div id="approvalModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">Confirm Approval</div>
+            <div class="modal-body">
+                <p>Are you sure you want to approve this declaration?</p>
+                <p style="margin-top: 1rem;"><strong>This action will:</strong></p>
+                <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
+                    <li>Mark the submission as "Reviewed"</li>
+                    <li>Record your approval with a timestamp</li>
+                    <li>Notify the employee of the approval</li>
+                </ul>
+                <p style="margin-top: 1rem; color: var(--color-text-muted); font-size: 0.9rem;">
+                    <em>This action cannot be undone.</em>
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-ghost" onclick="closeModal('approvalModal')">Cancel</button>
+                <button type="button" class="btn btn-success" onclick="processReview('approve')">
+                    <svg class="btn-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Confirm Approval
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rejection Modal with Notes -->
+    <div id="rejectionModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">Request Revision</div>
+            <div class="modal-body">
+                <p>Please provide detailed feedback explaining what needs to be revised:</p>
+                <textarea id="rejectionNotes"
+                          class="modal-textarea"
+                          placeholder="Explain what needs to be corrected or added..."
+                          required></textarea>
+                <p style="margin-top: 1rem; color: var(--color-text-muted); font-size: 0.9rem;">
+                    <strong>Note:</strong> The employee will receive your feedback and be able to resubmit the declaration.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-ghost" onclick="closeModal('rejectionModal')">Cancel</button>
+                <button type="button" class="btn btn-danger" onclick="processReview('reject')">
+                    <svg class="btn-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Send for Revision
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Modal Functions
+        function showApprovalModal() {
+            document.getElementById('approvalModal').classList.add('active');
+        }
+
+        function showRejectionModal() {
+            document.getElementById('rejectionModal').classList.add('active');
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+
+        // Close modal when clicking outside
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    closeModal(this.id);
+                }
+            });
+        });
+
+        // Process Review
+        async function processReview(action) {
+            let reviewerNotes = document.getElementById('reviewerNotes').value.trim();
+
+            // For rejection, require notes
+            if (action === 'reject') {
+                const rejectionNotes = document.getElementById('rejectionNotes').value.trim();
+                if (!rejectionNotes) {
+                    alert('Please provide feedback for the revision request.');
+                    return;
+                }
+                reviewerNotes = rejectionNotes;
+            }
+
+            const payload = {
+                submissionId: @Model.SubmissionId,
+                action: action,
+                reviewerNotes: reviewerNotes,
+                reviewerName: '@Model.ReviewerName',
+                reviewerPosition: '@Model.ReviewerPosition'
+            };
+
+            // Disable buttons
+            const buttons = document.querySelectorAll('button');
+            buttons.forEach(btn => btn.disabled = true);
+
+            try {
+                const response = await fetch('@Url.Action("ProcessReview", "Employee")', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    window.location.href = result.redirectUrl || '@Url.Action("Dashboard", "Employee")';
+                } else {
+                    alert(result.message || 'An error occurred. Please try again.');
+                    buttons.forEach(btn => btn.disabled = false);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred. Please try again.');
+                buttons.forEach(btn => btn.disabled = false);
+            }
+        }
+    </script>
+</body>
+</html>
+
+@* Helper classes for template configuration *@
+@functions {
+    public class TemplateConfig
+    {
+        public List<SectionConfig> Sections { get; set; } = new();
+    }
+
+    public class SectionConfig
+    {
+        public string SectionId { get; set; } = string.Empty;
+        public string SectionTitle { get; set; } = string.Empty;
+        public string? Disclaimer { get; set; }
+        public int SectionOrder { get; set; }
+        public List<FieldConfig> Fields { get; set; } = new();
+    }
+
+    public class FieldConfig
+    {
+        public string FieldId { get; set; } = string.Empty;
+        public string FieldLabel { get; set; } = string.Empty;
+        public string FieldType { get; set; } = string.Empty;
+        public bool Required { get; set; }
+        public int Order { get; set; }
+        public string? ConditionalOn { get; set; }
+        public List<string>? Options { get; set; }
+    }
+}

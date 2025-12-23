@@ -29,6 +29,10 @@
         // Goal Tracking
         public double GoalComplianceRate { get; set; } = 95.0;
         public bool IsGoalAchieved { get; set; }
+
+        public Template? template { get; set; }
+
+        public BulkRequestViewModel BulkData { get; set; } = new BulkRequestViewModel();
     }
 
     public class BulkRequestViewModel
@@ -37,12 +41,16 @@
         public List<Employee> Employees { get; set; } = new();
         public Dictionary<string, int> Departments { get; set; } = new();
         public DateTime SuggestedDueDate { get; set; }
+
+
     }
     public class BulkRequestFormModel
     {
         public int TemplateId { get; set; }
         public DateTime DueDate { get; set; }
-        public List<int> EmployeeIds { get; set; } = new();
+       // public List<int> EmployeeIds { get; set; } = new List<int>(); // ← was int before
+        public List<int> EmployeeIds { get; set; }
+        public string EmployeeIdsJson { get; set; }
     }
 
     public class EmployeeManagementViewModel
@@ -112,5 +120,49 @@
     {
         public DateTime ExpiryDate { get; set; }
         public string Message { get; set; } = "";
+    }
+    public class DOITask
+    {
+        public int TaskId { get; set; }
+        public int EmployeeId { get; set; }
+        public Employee Employee { get; set; } = null!;
+        public int TemplateId { get; set; }
+        public DOIFormTemplate Template { get; set; } = null!;
+        public DateTime DueDate { get; set; }
+        public string Status { get; set; } = "Outstanding"; // Outstanding, Submitted, Reviewed
+        public string? AccessToken { get; set; }
+        public DateTime? TokenExpiry { get; set; }
+
+        public DateTime CreatedAt { get; set; }
+        public string CreatedBy { get; set; }
+        public DateTime? SubmittedAt { get; set; }
+
+
+
+
+    }
+
+    public class DOIFormTemplate
+    {
+        public int TemplateId { get; set; }
+        public string TemplateName { get; set; } = string.Empty;
+        public string TemplateConfig { get; set; } = string.Empty; // JSONB for sections/fields
+    }
+
+    public class DOIFormSubmission
+    {
+        public int SubmissionId { get; set; }
+        public int TaskId { get; set; }
+        public string FormData { get; set; } = string.Empty; // JSONB
+        public DateTime? SubmittedAt { get; set; }
+        public string? AttestationSignature { get; set; }
+        public DateTime UpdatedAt { get; set; }
+        public string Status { get; set; } = "Draft";
+    }
+
+    public class SubmissionResult
+    {
+        public bool Success { get; set; }
+        public string Message { get; set; } = string.Empty;
     }
 }

@@ -65,6 +65,9 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<ICreditService, CreditService>();
 builder.Services.AddScoped<IVerificationService, VerificationService>();
 builder.Services.AddScoped<ISubmissionService, SubmissionService>();
+builder.Services.AddScoped<IEmployeeDOIService, EmployeeDOIService>();
+builder.Services.AddScoped<IReviewerService, ReviewerService>();
+builder.Services.AddScoped<IReviewHelperService, ReviewHelperService>();
 // MVC / Razor
 builder.Services.AddControllersWithViews();
 builder.Services.AddRazorPages();
@@ -92,7 +95,7 @@ app.UseAuthorization();
 
 app.MapControllerRoute(
     name: "default",
-    pattern: "{controller=Home}/{action=Index}/{id?}");
+    pattern: "{controller=Home}/{action=LandingPage}/{id?}");
 
 app.MapRazorPages();
 

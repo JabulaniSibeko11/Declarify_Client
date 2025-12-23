@@ -29,6 +29,14 @@ namespace Declarify.Models
         public virtual FormTask? Task { get; set; }
         public virtual ICollection<VerificationResult>? VerificationResults { get; set; }
 
+        public int? AssignedManagerId { get; set; }   // New: who should review/approve this
+        public string? AssignedManagerName { get; set; }  // Optional: for display purposes
 
+        public string ReviewerNotes { get; set; } = string.Empty; // New: notes from the reviewer/manager
+        public string? ReviewerSignature { get; set; } // New: digital signature of the reviewer
+        public DateTime? ReviewedDate { get; set; } // New: when the review was completed
+
+        public virtual ICollection<VerificationAttachment> VerificationAttachments { get; set; }
+            = new List<VerificationAttachment>();
     }
 }
