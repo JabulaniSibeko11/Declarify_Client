@@ -1,19 +1,3 @@
-using CsvHelper;
-using CsvHelper.Configuration;
-using Declarify.Data;
-using Declarify.Models;
-using Declarify.Models.ViewModels;
-using Declarify.Services;
-using Declarify.Services.Methods;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.CodeAnalysis.Elfie.Serialization;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.VisualStudio.Web.CodeGenerators.Mvc.Templates.Blazor;
-using Newtonsoft.Json;
-using OfficeOpenXml;
-using OfficeOpenXml.Style;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -23,6 +7,24 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using CsvHelper;
+using CsvHelper.Configuration;
+using Declarify.Data;
+using Declarify.Models;
+using Declarify.Models.ViewModels;
+using Declarify.Services;
+using Declarify.Services.API;
+using Declarify.Services.Methods;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.CodeAnalysis.Elfie.Serialization;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.VisualStudio.Web.CodeGenerators.Mvc.Templates.Blazor;
+using Newtonsoft.Json;
+using OfficeOpenXml;
+using OfficeOpenXml.FormulaParsing.Excel.Functions.Database;
+using OfficeOpenXml.Style;
 using LicenseContext = OfficeOpenXml.LicenseContext;
 namespace Declarify.Controllers
 {
@@ -42,7 +44,8 @@ namespace Declarify.Controllers
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly SignInManager<ApplicationUser> _signInManager;
         private readonly ApplicationDbContext _db;
-        public HomeController(ILogger<HomeController> logger,IEmailService email,ApplicationDbContext db, IEmployeeService eS, ITemplateService tS, IFormTaskService fS, ICreditService cS, ILicenseService lS, IVerificationService vS, IUserService uS, ISubmissionService sS, UserManager<ApplicationUser> userManager, SignInManager<ApplicationUser> signInManager)
+        private readonly CentralHubApiService _centralHub;
+        public HomeController(ILogger<HomeController> logger, IEmailService email, ApplicationDbContext db, IEmployeeService eS, ITemplateService tS, IFormTaskService fS, ICreditService cS, ILicenseService lS, IVerificationService vS, IUserService uS, ISubmissionService sS, UserManager<ApplicationUser> userManager, SignInManager<ApplicationUser> signInManager, CentralHubApiService centralHub)
         {
             _logger = logger;
             _ES = eS;
@@ -56,19 +59,166 @@ namespace Declarify.Controllers
             _userManager = userManager;
             _signInManager = signInManager;
             _db = db;
-            _EmailS= email;
+            _EmailS = email;
+            _centralHub = centralHub;
+        }
+
+        public async Task<IActionResult> TestPing()
+        {
+            try
+            {
+                var result = await _centralHub.PingAsync();
+
+                ViewBag.PingResult = result; // Will show { Message: "Pong", CompanyCode: "ACME001" }
+                ViewBag.Status = "Success";
+            }
+            catch (HttpRequestException ex)
+            {
+                ViewBag.Status = "Failed";
+                ViewBag.Error = ex.Message;
+                if (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized ||
+                    ex.StatusCode == System.Net.HttpStatusCode.Forbidden)
+                {
+                    ViewBag.Error = "Invalid or missing CompanyCode/ApiKey - License check failed";
+                }
+            }
+            catch (Exception ex)
+            {
+                ViewBag.Status = "Error";
+                ViewBag.Error = ex.Message;
+            }
+
+            return View();
         }
 
 
         public async Task<IActionResult> LandingPage()
         {
-            //if (await _LS.IsLicenseValidAsync())
-            //{
-            //    TempData["Info"] = "Your license is already active. Please log in to continue.";
-            //    return RedirectToAction("Login");
-            //}
+            if (await _LS.IsLicenseValidAsync())
+            {
+                TempData["Info"] = "Your license is already active. Please log in to continue.";
+                return RedirectToAction("Login");
+            }
             return View();
         }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Activate(string licenseKey)
+        {
+            if (string.IsNullOrWhiteSpace(licenseKey))
+            {
+                return Json(new { isValid = false, message = "Please enter a license key" });
+            }
+
+            // Call activation api
+            var result = await _centralHub.ActivateLicenseAsync(licenseKey);
+
+            if (result == null || !result.isValid)
+            {
+                return Json(new
+                {
+                    isValid = false,
+                    message = result?.message ?? "Unable to validate license. Please try again.",
+                    IsExpired = result?.isValid ?? false
+                });
+            }
+
+            //1. SUCCESS! Save the company details for future use
+            await _LS.SyncLicenseFromCentralAsync(licenseKey,result.companyId, result.ExpiryDate, result.isValid);
+
+            //2. Collect admin initial
+            if (!string.IsNullOrWhiteSpace(result.Email))
+            {
+                // Check if user already exists
+                var existingUser = await _userManager.FindByEmailAsync(result.Email);
+
+                ApplicationUser adminUser;
+
+                if (existingUser == null)
+                {
+                    // Create new Identity user
+                    adminUser = new ApplicationUser
+                    {
+                        UserName = result.Email,
+                        Email = result.Email,
+                        Full_Name = result.FullName ?? "System Administrator",
+                        PhoneNumber = result.PhoneNumber,
+                        roleInCompany = "Admin",
+                        Role = "Admin",
+                        Department = result.Department,
+                        IsFirstLogin = true,
+                        EmailConfirmed = true
+                    };
+
+                    var createResult = await _userManager.CreateAsync(adminUser);
+
+                    if (!createResult.Succeeded)
+                    {
+                        // Log errors
+                        return Json(new { isValid = false, message = "Failed to create admin account" });
+                    }
+
+                    await _userManager.AddToRoleAsync(adminUser, "Admin");
+                }
+                else
+                {
+                    adminUser = existingUser;
+                    // Update details if changed
+                    adminUser.Full_Name = result.FullName ?? adminUser.Full_Name;
+                    adminUser.PhoneNumber = result.PhoneNumber ?? adminUser.PhoneNumber;
+                    await _userManager.UpdateAsync(adminUser);
+                }
+
+                // 3. Create or update Employee record
+                var employee = await _db.Employees.Include(e => e.ApplicationUser).FirstOrDefaultAsync(e => e.Email_Address == result.Email);
+
+                if (employee == null)
+                {
+                    employee = new Employee
+                    {
+                        Full_Name = result.FullName ?? "System Administrator",
+                        Email_Address = result.Email,
+                        Position = result.JobTitle ?? "Administrator",
+                        Department = result.Department,
+                        IsActive = true,
+                        ApplicationUserId = adminUser.Id,
+                        ApplicationUser = adminUser
+                    };
+                    _db.Employees.Add(employee);
+                }
+                else
+                {
+                    employee.Full_Name = result.FullName ?? employee.Full_Name;
+                    employee.Position = result.JobTitle ?? employee.Position;
+                    employee.Department = result.Department ?? employee.Department;
+                    employee.ApplicationUserId = adminUser.Id;
+                }
+
+                // Link back
+                //adminUser.EmployeeId = employee.EmployeeId;
+
+                await _db.SaveChangesAsync();
+
+                // Update user with EmployeeId
+                adminUser.EmployeeId = employee.EmployeeId;
+                await _userManager.UpdateAsync(adminUser);
+            }
+
+
+            return Json(new
+            {
+                isValid = true,
+                companyName = result.companyName,
+                LicenseKey = licenseKey,
+                emailDomain = result.emailDomain ?? "",
+                expiryDate = result.ExpiryDate,
+                daysUntilExpiry = result.daysUntilExpiry ,
+                IsExpired = result.isValid,
+                message = "License activated successfully"
+            });
+        }
+
 
         [HttpGet]
         [AllowAnonymous]
@@ -451,7 +601,8 @@ namespace Declarify.Controllers
                 // Check license first (NFR 5.2)
                 if (!await _LS.IsLicenseValidAsync())
                 {
-                    return View("LicenseExpired");
+                   // return View("LicenseExpired");
+                    return View("LandingPage");
                 }
 
                 if (!User.Identity.IsAuthenticated)
@@ -459,64 +610,71 @@ namespace Declarify.Controllers
                     // Redirect to login page (adjust the route if needed)
                     return RedirectToAction("Login", "Home");
                 }
+
+                //API Calls
+                var creditBalanceResult = await _centralHub.CheckCreditBalance();
+
+
+
+
                 var dashboardData = await _FS.GetComplianceDashboardDataAsync();
-            var creditBalance = await _CS.GetAvailableCreditsAsync();
-            var creditBatches = await _CS.GetCreditBatchesAsync();
-            var licenseStatus = await _LS.GetLicenseStatusMessageAsync();
-            var licenseExpiryDate = await _LS.GetExpiryDateAsync();
+               // var creditBalance = await _CS.GetAvailableCreditsAsync();
+                var creditBatches = await _CS.GetCreditBatchesAsync();
+                var licenseStatus = await _LS.GetLicenseStatusMessageAsync();
+                var licenseExpiryDate = await _LS.GetExpiryDateAsync();
                 var templates = (await _TS.GetActiveTemplatesAsync()).ToList();
 
 
                 // Check for low credit balance
-                var lowCreditWarning = creditBalance < 50;
-            var criticalCreditWarning = creditBalance < 20;
+                //var lowCreditWarning = creditBalance < 50;
+                //var criticalCreditWarning = creditBalance < 20;
 
-            // Check for expiring credits
-            var expiringCredits = await _CS.GetExpiringCreditsAsync(30);
+                // Check for expiring credits
+                var expiringCredits = await _CS.GetExpiringCreditsAsync(30);
 
-            var viewModel = new DashboardViewModel
-            {
-                // Compliance Metrics (FR 4.5.1)
-                TotalEmployees = dashboardData.TotalEmployees,
-                TotalTasks = dashboardData.TotalTasks,
-                OutstandingCount = dashboardData.OutstandingCount,
-                OverdueCount = dashboardData.OverdueCount,
-                SubmittedCount = dashboardData.SubmittedCount,
-                ReviewedCount = dashboardData.ReviewedCount,
-                NonCompliantCount = dashboardData.NonCompliantCount,
-                CompliancePercentage = dashboardData.CompliancePercentage,
-
-                // Department Breakdown (FR 4.5.3)
-                DepartmentBreakdown = dashboardData.DepartmentBreakdown,
-
-                // Credit Information
-                CreditBalance = creditBalance,
-                CreditBatches = creditBatches,
-                ExpiringCredits = expiringCredits,
-                LowCreditWarning = lowCreditWarning,
-                CriticalCreditWarning = criticalCreditWarning,
-
-                // License Information
-                LicenseStatus = licenseStatus,
-                LicenseExpiryDate = licenseExpiryDate,
-                DaysUntilLicenseExpiry = (licenseExpiryDate - DateTime.UtcNow).Days,
-
-                // Goal Tracking (G1: 95% compliance)
-                GoalComplianceRate = 95.0,
-                IsGoalAchieved = dashboardData.CompliancePercentage >= 95.0,
-                // === POPULATE BULK REQUEST DATA FOR MODAL (FR 4.3.1) ===
-
-                BulkData = new BulkRequestViewModel
+                var viewModel = new DashboardViewModel
                 {
-                      Templates = templates,
-                   // Templates = (await _TS.GetActiveTemplatesAsync()).ToList(),
-                    Employees = await _ES.GetAllEmployeesAsync(),
-                    Departments = await _ES.GetDepartmentEmployeeCountsAsync(),
-                    SuggestedDueDate = DateTime.UtcNow.AddDays(30)
-                },
-                // In your Index method, after populating BulkData
+                    // Compliance Metrics (FR 4.5.1)
+                    TotalEmployees = dashboardData.TotalEmployees,
+                    TotalTasks = dashboardData.TotalTasks,
+                    OutstandingCount = dashboardData.OutstandingCount,
+                    OverdueCount = dashboardData.OverdueCount,
+                    SubmittedCount = dashboardData.SubmittedCount,
+                    ReviewedCount = dashboardData.ReviewedCount,
+                    NonCompliantCount = dashboardData.NonCompliantCount,
+                    CompliancePercentage = dashboardData.CompliancePercentage,
 
-            };
+                    // Department Breakdown (FR 4.5.3)
+                    DepartmentBreakdown = dashboardData.DepartmentBreakdown,
+
+                    // Credit Information
+                    CreditBalance = creditBalanceResult?.currentBalance ?? 0,
+                    CreditBatches = creditBatches,
+                    ExpiringCredits = expiringCredits,
+                    LowCreditWarning = creditBalanceResult?.currentBalance < 50,
+                    CriticalCreditWarning = creditBalanceResult?.currentBalance < 20,
+
+                    // License Information
+                    LicenseStatus = licenseStatus,
+                    LicenseExpiryDate = licenseExpiryDate,
+                    DaysUntilLicenseExpiry = (licenseExpiryDate - DateTime.UtcNow).Days,
+
+                    // Goal Tracking (G1: 95% compliance)
+                    GoalComplianceRate = 95.0,
+                    IsGoalAchieved = dashboardData.CompliancePercentage >= 95.0,
+                    // === POPULATE BULK REQUEST DATA FOR MODAL (FR 4.3.1) ===
+
+                    BulkData = new BulkRequestViewModel
+                    {
+                          Templates = templates,
+                       // Templates = (await _TS.GetActiveTemplatesAsync()).ToList(),
+                        Employees = await _ES.GetAllEmployeesAsync(),
+                        Departments = await _ES.GetDepartmentEmployeeCountsAsync(),
+                        SuggestedDueDate = DateTime.UtcNow.AddDays(30)
+                    },
+                    // In your Index method, after populating BulkData
+
+                };
 
              
                 // Populate bulk request data for the modal
@@ -529,8 +687,8 @@ namespace Declarify.Controllers
             catch (Exception ex) {
                 _logger.LogError(ex, "Error loading admin dashboard");
                 TempData["Error"] = "Failed to load dashboard data. Please try again.";
-                return View(new DashboardViewModel());
-
+                // return View(new DashboardViewModel());
+                return RedirectToAction("Login");
             }
           
         }

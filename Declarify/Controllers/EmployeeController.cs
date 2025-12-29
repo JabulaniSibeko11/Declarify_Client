@@ -1,12 +1,14 @@
-﻿using Declarify.Data;
+﻿using System.Security.Claims;
+using System.Text.Json;
+using System.Threading.Tasks;
+using Declarify.Data;
 using Declarify.Models;
 using Declarify.Models.ViewModels;
 using Declarify.Services;
+using Declarify.Services.API;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using System.Security.Claims;
-using System.Text.Json;
 
 namespace Declarify.Controllers
 {
@@ -17,15 +19,17 @@ namespace Declarify.Controllers
         private readonly IReviewHelperService _reviewHelper;
 
         private readonly ApplicationDbContext _db;
+        private readonly CentralHubApiService _centralHub;
 
         public EmployeeController(
           IEmployeeDOIService doiService,
-          ILogger<EmployeeController> logger, ApplicationDbContext db, IReviewHelperService reviewHelper)
+          ILogger<EmployeeController> logger, ApplicationDbContext db, IReviewHelperService reviewHelper, CentralHubApiService centralHub)
         {
             _doiService = doiService;
             _logger = logger;
             _db = db;
             _reviewHelper = reviewHelper;
+            _centralHub = centralHub;
         }
 
         // GET: /employee/dashboard
@@ -97,6 +101,17 @@ namespace Declarify.Controllers
                 {
                     TempData["Error"] = "This link has expired or is invalid. Please request a new one from your administrator.";
                     return View("TokenExpired");
+                }
+
+                //Check if there are enough credits
+                CreditCheckResponse? creditCheck = null;
+
+                creditCheck = await _centralHub.CheckCreditBalance();
+
+                if (creditCheck == null || !creditCheck.hasCredits || creditCheck.currentBalance <= 100)
+                {
+                    TempData["ErrorCheckCredits"] = creditCheck == null? "Cannot verify credits — license server unreachable. Please try again later.": "Your organization has no remaining credits. Please contact your administrator to top up.";
+                    return View("NotEnoughCredits");
                 }
 
                 var template = await _doiService.GetFormTemplateForTaskAsync(task.TaskId);
@@ -232,8 +247,7 @@ namespace Declarify.Controllers
         [HttpPost("submit")]
         public async Task<IActionResult> Submit([FromBody] SubmitFormRequest request)
         {
-            try
-            {
+            
                 if (string.IsNullOrEmpty(request.Token) ||
                     request.FormData == null ||
                     string.IsNullOrEmpty(request.AttestationSignature))
@@ -241,6 +255,36 @@ namespace Declarify.Controllers
                     return BadRequest(new { success = false, message = "Invalid submission" });
                 }
 
+                //1. Check if org has enough credits 
+                CreditCheckResponse? creditCheck = null;
+
+                creditCheck = await _centralHub.CheckCreditBalance();
+
+                if (creditCheck == null || !creditCheck.hasCredits || creditCheck.currentBalance <= 100)
+                {
+                    TempData["ErrorCheckCredits"] = creditCheck == null ? "Cannot verify credits — license server unreachable. Please try again later." : "Your organization has no remaining credits. Please contact your administrator to top up.";
+                    return Ok(new
+                    {
+                        success = false,
+                        message = creditCheck == null ? "Cannot verify credits — license server unreachable. Please try again later." : "Your organization has no remaining credits. Please contact your administrator to top up."
+                    });
+                }
+
+                //2. Deduct credits via central hub API
+                var consumeResult = await _centralHub.ConsumeCredits(100, $"DOI Submission task {request.Token}");
+                    if (!consumeResult.Success)
+                    {
+                        TempData["ErrorCheckCredits"] = consumeResult.Error ?? "Failed to record submission — insufficient credits or server error";
+
+                    return Ok(new
+                    {
+                        success = false,
+                        message = consumeResult.Error ?? "Failed to record submission — insufficient credits or server error"
+                     });
+                }
+
+            try
+            {
                 var formData = JsonDocument.Parse(request.FormData);
                 var result = await _doiService.SubmitDOIAsync(
                     request.Token,
@@ -269,6 +313,9 @@ namespace Declarify.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error submitting form");
+
+                //Refund deducted credits via central hub API
+                //var refundResult = await _centralHub.ConsumeCredits(-1, $"DOI Submission task {request.Token}");
                 return StatusCode(500, new { success = false, message = "Error submitting form" });
             }
         }
