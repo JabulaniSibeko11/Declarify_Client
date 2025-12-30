@@ -484,42 +484,48 @@ namespace Declarify.Controllers
                 // Check license first (NFR 5.2)
                 if (!await _LS.IsLicenseValidAsync())
                 {
-                    return View("LicenseExpired");
+                    // return View("LicenseExpired");
+                    return View("LandingPage");
                 }
+
                 if (!User.Identity.IsAuthenticated)
                 {
                     // Redirect to login page (adjust the route if needed)
                     return RedirectToAction("Login", "Home");
                 }
+
+                //API Calls
+                var creditBalanceResult = await _centralHub.CheckCreditBalance();
+
+
+
+
                 var dashboardData = await _FS.GetComplianceDashboardDataAsync();
-            var creditBalance = await _CS.GetAvailableCreditsAsync();
-            var creditBatches = await _CS.GetCreditBatchesAsync();
-            var licenseStatus = await _LS.GetLicenseStatusMessageAsync();
-            var licenseExpiryDate = await _LS.GetExpiryDateAsync();
+                // var creditBalance = await _CS.GetAvailableCreditsAsync();
+                var creditBatches = await _CS.GetCreditBatchesAsync();
+                var licenseStatus = await _LS.GetLicenseStatusMessageAsync();
+                var licenseExpiryDate = await _LS.GetExpiryDateAsync();
                 var templates = (await _TS.GetActiveTemplatesAsync()).ToList();
 
-                // Get company information from central hub
-                //var companyInfo = await _centralHubService.GetCompanyInformation();
-                //var adminInfo = await _centralHubService.GetCompanyAdministrators();
 
                 // Check for low credit balance
-                var lowCreditWarning = creditBalance < 50;
-            var criticalCreditWarning = creditBalance < 20;
+                //var lowCreditWarning = creditBalance < 50;
+                //var criticalCreditWarning = creditBalance < 20;
 
-            // Check for expiring credits
-            var expiringCredits = await _CS.GetExpiringCreditsAsync(30);
+                // Check for expiring credits
+                var expiringCredits = await _CS.GetExpiringCreditsAsync(30);
 
-            var viewModel = new DashboardViewModel
-            {
-                // Compliance Metrics (FR 4.5.1)
-                TotalEmployees = dashboardData.TotalEmployees,
-                TotalTasks = dashboardData.TotalTasks,
-                OutstandingCount = dashboardData.OutstandingCount,
-                OverdueCount = dashboardData.OverdueCount,
-                SubmittedCount = dashboardData.SubmittedCount,
-                ReviewedCount = dashboardData.ReviewedCount,
-                NonCompliantCount = dashboardData.NonCompliantCount,
-                CompliancePercentage = dashboardData.CompliancePercentage,
+                var viewModel = new DashboardViewModel
+                {
+                    // Compliance Metrics (FR 4.5.1)
+                    TotalEmployees = dashboardData.TotalEmployees,
+                    TotalTasks = dashboardData.TotalTasks,
+                    OutstandingCount = dashboardData.OutstandingCount,
+                    OverdueCount = dashboardData.OverdueCount,
+                    SubmittedCount = dashboardData.SubmittedCount,
+                    ReviewedCount = dashboardData.ReviewedCount,
+                    NonCompliantCount = dashboardData.NonCompliantCount,
+                    CompliancePercentage = dashboardData.CompliancePercentage,
 
                     // Department Breakdown (FR 4.5.3)
                     DepartmentBreakdown = dashboardData.DepartmentBreakdown,
@@ -536,22 +542,28 @@ namespace Declarify.Controllers
                     LicenseExpiryDate = licenseExpiryDate,
                     DaysUntilLicenseExpiry = (licenseExpiryDate - DateTime.UtcNow).Days,
 
-                // Goal Tracking (G1: 95% compliance)
-                GoalComplianceRate = 95.0,
-                IsGoalAchieved = dashboardData.CompliancePercentage >= 95.0,
+                    // Goal Tracking (G1: 95% compliance)
+                    GoalComplianceRate = 95.0,
+                    IsGoalAchieved = dashboardData.CompliancePercentage >= 95.0,
+                    // === POPULATE BULK REQUEST DATA FOR MODAL (FR 4.3.1) ===
+
+                    BulkData = new BulkRequestViewModel
+                    {
+                        Templates = templates,
+                        // Templates = (await _TS.GetActiveTemplatesAsync()).ToList(),
+                        Employees = await _ES.GetAllEmployeesAsync(),
+                        Departments = await _ES.GetDepartmentEmployeeCountsAsync(),
+                        SuggestedDueDate = DateTime.UtcNow.AddDays(30)
+                    },
+                    // In your Index method, after populating BulkData
+
+                };
+
+
+                // Populate bulk request data for the modal
                 // === POPULATE BULK REQUEST DATA FOR MODAL (FR 4.3.1) ===
 
-                BulkData = new BulkRequestViewModel
-                {
-                      Templates = templates,
-                   // Templates = (await _TS.GetActiveTemplatesAsync()).ToList(),
-                    Employees = await _ES.GetAllEmployeesAsync(),
-                    Departments = await _ES.GetDepartmentEmployeeCountsAsync(),
-                    SuggestedDueDate = DateTime.UtcNow.AddDays(30)
-                },
-                // In your Index method, after populating BulkData
 
-            };
 
                 return View(viewModel);
             }
@@ -559,9 +571,10 @@ namespace Declarify.Controllers
             {
                 _logger.LogError(ex, "Error loading admin dashboard");
                 TempData["Error"] = "Failed to load dashboard data. Please try again.";
-                return View(new DashboardViewModel());
-
+                // return View(new DashboardViewModel());
+                return RedirectToAction("Login");
             }
+
         }
 
         public async Task<IActionResult> Template() {

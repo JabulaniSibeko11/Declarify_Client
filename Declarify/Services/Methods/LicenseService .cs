@@ -225,32 +225,32 @@ namespace Declarify.Services.Methods
 
 
         //Save the license on the client local db
-        public async Task SyncLicenseFromCentralAsync(string licenseKey, int companyId, DateTime expiryDate, bool isActive)
-        {
-            var currentLicense = await GetCurrentLicenseAsync();
+        //public async Task SyncLicenseFromCentralAsync(string licenseKey, int companyId, DateTime expiryDate, bool isActive)
+        //{
+        //    var currentLicense = await GetCurrentLicenseAsync();
 
-            if (currentLicense == null)
-            {
-                currentLicense = new License
-                {
-                    LicenseKey = DataProtection.Encrypt(licenseKey),
-                    InstanceId = DataProtection.Encrypt(companyId.ToString()),
-                    ExpiryDate = expiryDate,
-                    IsActive = isActive
-                };
-                _db.Licenses.Add(currentLicense);
-            }
-            else
-            {
-                currentLicense.LicenseKey = DataProtection.Encrypt(licenseKey);
-                currentLicense.InstanceId = DataProtection.Encrypt(companyId.ToString());
-                currentLicense.ExpiryDate = expiryDate;
-                currentLicense.IsActive = isActive;
-            }
+        //    if (currentLicense == null)
+        //    {
+        //        currentLicense = new License
+        //        {
+        //            LicenseKey = DataProtection.Encrypt(licenseKey),
+        //            InstanceId = DataProtection.Encrypt(companyId.ToString()),
+        //            ExpiryDate = expiryDate,
+        //            IsActive = isActive
+        //        };
+        //        _db.Licenses.Add(currentLicense);
+        //    }
+        //    else
+        //    {
+        //        currentLicense.LicenseKey = DataProtection.Encrypt(licenseKey);
+        //        currentLicense.InstanceId = DataProtection.Encrypt(companyId.ToString());
+        //        currentLicense.ExpiryDate = expiryDate;
+        //        currentLicense.IsActive = isActive;
+        //    }
 
-            await _db.SaveChangesAsync();
-            _logger.LogInformation("License record updated from central activation");
-        }
+        //    await _db.SaveChangesAsync();
+        //    _logger.LogInformation("License record updated from central activation");
+        //}
 
 
         public async Task<string> GetLicenseKeyAsync()
@@ -259,11 +259,11 @@ namespace Declarify.Services.Methods
             return license != null ? DataProtection.Decrypt(license.LicenseKey) : string.Empty;
         }
 
-        public async Task<string> GetInstanceIdAsync()
-        {
-            var license = await _db.Licenses.FirstOrDefaultAsync();
-            return license != null ? DataProtection.Decrypt(license.InstanceId) : string.Empty;
-        }
+        //public async Task<string> GetInstanceIdAsync()
+        //{
+        //    var license = await _db.Licenses.FirstOrDefaultAsync();
+        //    return license != null ? DataProtection.Decrypt(license.InstanceId) : string.Empty;
+        //}
 
     }
 }
