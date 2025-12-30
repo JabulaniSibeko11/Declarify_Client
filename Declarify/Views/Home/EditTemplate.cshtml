@@ -1,0 +1,420 @@
+﻿@model Declarify.Models.ViewModels.TemplateEditViewModel
+
+@{
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Template - @Model.TemplateName - Declarify</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="~/css/admindashboardcss.css" rel="stylesheet" />
+    <link href="~/css/edittemplate.css" rel="stylesheet" />
+
+  
+</head>
+<body>
+    <header class="modern-header">
+        <div class="header-container">
+            <div class="header-left">
+                <div class="brand-section">
+                    <div class="brand-logo">
+                        <div class="logo-circle"></div>
+                        <div class="brand-text">
+                            <div class="brand-name">Declar</div>
+                            <div class="brand-tagline">Compliance Hub</div>
+                        </div>
+                    </div>
+                    <div class="vertical-divider"></div>
+                    <div class="company-badge">
+                        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+                            <polyline points="9 22 9 12 15 12 15 22" />
+                        </svg>
+                        <span>Admin</span>
+                    </div>
+                </div>
+            </div>
+            <div class="header-center">
+                <div class="dashboard-breadcrumb">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <span>Edit Template</span>
+                </div>
+            </div>
+            <div class="header-right">
+                <button class="employee-trigger">
+                    <div class="employee-avatar">AD</div>
+                    <div class="employee-info-compact">
+                        <div class="employee-name">Admin User</div>
+                        <div class="employee-role">
+                            <span class="role-badge">Admin</span>
+                        </div>
+                    </div>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        @if (TempData["Success"] != null)
+        {
+            <div class="alert-message alert-success">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>@TempData["Success"]</span>
+            </div>
+        }
+
+        @if (TempData["Error"] != null)
+        {
+            <div class="alert-message alert-error">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>@TempData["Error"]</span>
+            </div>
+        }
+
+        <div class="edit-template-header">
+            <div class="edit-header-content">
+                <div class="edit-header-left">
+                    <h1>📝 Edit Template</h1>
+                    <p>@Model.TemplateName</p>
+                    <div class="template-status-badge status-@Model.Status.ToLower()">
+                        @if (Model.Status == "Draft")
+                        {
+                            <span>📄</span>
+                        }
+                        else if (Model.Status == "Active")
+                        {
+                            <span>✓</span>
+                        }
+                        else
+                        {
+                            <span>📦</span>
+                        }
+                        <span>@Model.Status</span>
+                    </div>
+                </div>
+                <div class="edit-actions-group">
+                    <a href="@Url.Action("Templates", "Home")" class="back-btn">
+                        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path d="M15 19l-7-7 7-7" />
+                        </svg>
+                        Back to Templates
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <form id="editTemplateForm" method="post" action="@Url.Action("EditTemplate", "Home", new { id = Model.TemplateId })">
+            @Html.AntiForgeryToken()
+            @Html.HiddenFor(m => m.TemplateId)
+            @Html.HiddenFor(m => m.Status)
+            <input type="hidden" id="configData" name="Config" value="@Html.Raw(Model.Config)" />
+
+            <div class="template-info-grid">
+                <div class="info-card">
+                    <label for="TemplateName">Template Name <span style="color: var(--color-danger);">*</span></label>
+                    @Html.TextBoxFor(m => m.TemplateName, new { @class = "form-control", required = "required", placeholder = "e.g., Annual Declaration of Interest 2025" })
+                </div>
+
+                <div class="info-card">
+                    <label for="Description">Description</label>
+                    @Html.TextAreaFor(m => m.Description, new { @class = "form-control", rows = "3", placeholder = "Brief description of this template..." })
+                </div>
+            </div>
+
+            <div class="template-builder-section">
+                <div class="section-title-header">
+                    <h2>Template Structure</h2>
+                    <button type="button" class="btn btn-primary" onclick="addSection()">
+                        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path d="M12 4v16m8-8H4" />
+                        </svg>
+                        Add Section
+                    </button>
+                </div>
+
+                <div id="sectionsContainer">
+                    <div class="empty-state">
+                        <div class="empty-icon">📋</div>
+                        <h3>Loading Template Structure...</h3>
+                        <p>Please wait while we load your template configuration</p>
+                    </div>
+                </div>
+            </div>
+
+            <div style="margin: 2rem; display: flex; gap: 1rem; justify-content: flex-end;">
+                <button type="button" class="btn btn-ghost" onclick="saveDraft()">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                    </svg>
+                    Save Draft
+                </button>
+
+                @if (Model.Status == "Draft")
+                {
+                    <button type="button" class="btn btn-publish" onclick="publishTemplate()">
+                        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path d="M5 13l4 4L19 7" />
+                        </svg>
+                        Publish Template
+                    </button>
+                }
+
+                @if (Model.Status == "Active")
+                {
+                    <button type="button" class="btn btn-archive" onclick="archiveTemplate()">
+                        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                        </svg>
+                        Archive Template
+                    </button>
+                }
+
+                <button type="submit" class="btn btn-save">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path d="M5 13l4 4L19 7" />
+                    </svg>
+                    Save Changes
+                </button>
+            </div>
+        </form>
+    </main>
+
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner"></div>
+    </div>
+
+    @Html.Partial("_TemplateBuilder")
+
+    <script src="~/js/templatebuilderjs.js"></script>
+    <script>
+        // Initialize template data from model
+        const templateId = @Model.TemplateId;
+        const templateConfig = @Html.Raw(Model.Config);
+
+        // Load existing template structure
+        window.addEventListener('load', () => {
+            loadExistingTemplate(templateConfig);
+        });
+
+        function loadExistingTemplate(config) {
+            try {
+                const data = typeof config === 'string' ? JSON.parse(config) : config;
+
+                if (data.sections && Array.isArray(data.sections)) {
+                    sections = data.sections;
+                    sectionIdCounter = sections.length;
+
+                    const container = document.getElementById('sectionsContainer');
+                    container.innerHTML = '';
+
+                    sections.forEach(section => {
+                        renderExistingSection(section);
+                    });
+
+                    updateAddSectionButton();
+                } else {
+                    // No sections yet
+                    document.getElementById('sectionsContainer').innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-icon">📋</div>
+                            <h3>No Sections Yet</h3>
+                            <p>Click "Add Section" to start building your template</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error loading template:', error);
+                alert('Error loading template configuration. Please refresh the page.');
+            }
+        }
+
+        function renderExistingSection(section) {
+            const container = document.getElementById('sectionsContainer');
+            const sectionHtml = `
+                <div class="section-card-builder" data-section-id="${section.sectionId}">
+                    <div class="section-header-builder">
+                        <div class="drag-handle" title="Drag to reorder">⋮⋮</div>
+                        <input type="text" class="section-title-input"
+                               placeholder="Section Title"
+                               onblur="updateSectionTitle('${section.sectionId}', this.value)"
+                               value="${section.sectionTitle || ''}">
+                        <button class="btn-icon-delete" onclick="deleteSection('${section.sectionId}')" title="Delete Section">
+                            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                        </button>
+                    </div>
+
+                    <div class="section-disclaimer">
+                        <input type="text" class="disclaimer-input"
+                               placeholder="Optional: Instructions or disclaimer..."
+                               onblur="updateSectionDisclaimer('${section.sectionId}', this.value)"
+                               value="${section.disclaimer || ''}">
+                    </div>
+
+                    <div class="fields-container-builder" id="fields-${section.sectionId}">
+                        ${section.fields && section.fields.length > 0 ? '' : `
+                            <div class="empty-fields">
+                                <p class="clickable-add-field" onclick="showAddFieldModal('${section.sectionId}')">
+                                    <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                        <path d="M12 4v16m8-8H4" />
+                                    </svg>
+                                    No fields yet. Click here to add a field
+                                </p>
+                            </div>
+                        `}
+                    </div>
+
+                    <div class="section-actions">
+                        <button class="btn btn-ghost btn-sm" style="background-color:#00C2CB; color:#081B38;" onclick="showAddFieldModal('${section.sectionId}')">
+                            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M12 4v16m8-8H4" />
+                            </svg>
+                            Add Field
+                        </button>
+                        <span class="field-count" id="fieldCount-${section.sectionId}">${section.fields ? section.fields.length : 0} field(s)</span>
+                    </div>
+                </div>
+            `;
+
+            container.insertAdjacentHTML('beforeend', sectionHtml);
+
+            // Render existing fields
+            if (section.fields && section.fields.length > 0) {
+                section.fields.forEach(field => {
+                    renderFieldInSection(section.sectionId, field);
+                });
+            }
+        }
+
+        // Save as draft
+        async function saveDraft() {
+            if (!validateForm()) return;
+
+            const formData = collectFormData();
+            formData.Status = 'Draft';
+
+            await submitForm(formData, 'Template saved as draft successfully!');
+        }
+
+        // Publish template
+        async function publishTemplate() {
+            if (!validateForm()) return;
+
+            if (!confirm('Are you sure you want to publish this template? It will become available for use.')) {
+                return;
+            }
+
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '@Url.Action("PublishTemplate", "Home", new { id = Model.TemplateId })';
+
+            const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
+            const tokenInput = document.createElement('input');
+            tokenInput.type = 'hidden';
+            tokenInput.name = '__RequestVerificationToken';
+            tokenInput.value = token;
+            form.appendChild(tokenInput);
+
+            document.body.appendChild(form);
+            form.submit();
+        }
+
+        // Archive template
+        async function archiveTemplate() {
+            if (!confirm('Are you sure you want to archive this template? It will no longer be available for new requests.')) {
+                return;
+            }
+
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '@Url.Action("ArchiveTemplate", "Home", new { id = Model.TemplateId })';
+
+            const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
+            const tokenInput = document.createElement('input');
+            tokenInput.type = 'hidden';
+            tokenInput.name = '__RequestVerificationToken';
+            tokenInput.value = token;
+            form.appendChild(tokenInput);
+
+            document.body.appendChild(form);
+            form.submit();
+        }
+
+        function validateForm() {
+            const templateName = document.getElementById('TemplateName').value.trim();
+
+            if (!templateName) {
+                alert('⚠️ Please enter a template name');
+                document.getElementById('TemplateName').focus();
+                return false;
+            }
+
+            if (sections.length === 0) {
+                if (!confirm('⚠️ Your template has no sections. Continue anyway?')) {
+                    return false;
+                }
+            }
+
+            for (const section of sections) {
+                if (!section.sectionTitle.trim()) {
+                    alert('⚠️ Please provide titles for all sections');
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        function collectFormData() {
+            return {
+                templateId: templateId,
+                templateName: document.getElementById('TemplateName').value.trim(),
+                description: document.getElementById('Description').value.trim(),
+                sections: sections,
+                config: JSON.stringify({ sections: sections })
+            };
+        }
+
+        async function submitForm(formData, successMessage) {
+            const overlay = document.getElementById('loadingOverlay');
+            overlay.classList.add('active');
+
+            try {
+                // Update hidden config field
+                document.getElementById('configData').value = formData.config;
+
+                // Submit the form
+                document.getElementById('editTemplateForm').submit();
+            } catch (error) {
+                overlay.classList.remove('active');
+                console.error('Error:', error);
+                alert('An error occurred while saving. Please try again.');
+            }
+        }
+
+        // Form submission handler
+        document.getElementById('editTemplateForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            if (!validateForm()) return;
+
+            // Update config field with current sections data
+            const configData = JSON.stringify({ sections: sections });
+            document.getElementById('configData').value = configData;
+
+            // Submit the form
+            this.submit();
+        });
+    </script>
+</body>
+</html>

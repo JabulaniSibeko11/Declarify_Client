@@ -50,7 +50,8 @@
                 </div>
 
                 <!-- Activation Form -->
-                <form id="activationForm">
+                <form id="activationForm" asp-action="Activate" asp-controller="Home" method="post">
+                    @Html.AntiForgeryToken()
                     <div class="form-group">
                         <label for="licenseKey" class="form-label">License Key</label>
                         <div class="input-wrapper">
@@ -147,57 +148,54 @@
         });
 
         // Form Submission
-        activationForm.addEventListener('submit', async function(e) {
-            e.preventDefault();
+                activationForm.addEventListener('submit', function(e) {
+            e.preventDefault(); // Still prevent default to control UX
             hideAlert();
 
-            const licenseKey = licenseKeyInput.value.replace(/-/g, ''); // Remove dashes
-
+            const licenseKey = licenseKeyInput.value.replace(/-/g, '');
             if (licenseKey.length < 8) {
                 showAlert('Please enter a valid license key', 'error');
                 return;
             }
 
-            // Show loading state
+            // Loading state
             submitBtn.disabled = true;
             submitBtn.textContent = 'Validating...';
             loadingSpinner.classList.add('active');
 
-            try {
-                // API Call to validate license
-                const response = await fetch(`${API_BASE_URL}/LicenseApi/Validate/${licenseKey}`, {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
-                });
+            // Create form data
+            const formData = new FormData();
+            formData.append('licenseKey', licenseKeyInput.value); // Keep dashes for server if needed
 
-                const data = await response.json();
-
-                if (!response.ok) {
-                    throw new Error(data.error || 'License validation failed');
+            // Submit to server (your controller)
+            fetch(activationForm.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
                 }
-
+            })
+            .then(response => response.json())
+            .then(data => {
                 if (data.isValid) {
-                    // Success! Show success screen
                     displaySuccessScreen(data);
                 } else {
                     if (data.IsExpired) {
                         showAlert(data.message || 'License has expired. Please renew to continue.', 'error');
                     } else {
-                        showAlert('Invalid license key. Please check and try again.', 'error');
+                        showAlert(data.message || 'Invalid license key. Please check and try again.', 'error');
                     }
                 }
-
-            } catch (error) {
-                console.error('Validation error:', error);
-                showAlert(error.message || 'Unable to validate license. Please check your connection and try again.', 'error');
-            } finally {
-                // Reset button state
+            })
+            .catch(error => {
+                console.error('Activation error:', error);
+                showAlert('Unable to validate license. Please try again.', 'error');
+            })
+            .finally(() => {
                 submitBtn.disabled = false;
                 submitBtn.textContent = 'Validate License';
                 loadingSpinner.classList.remove('active');
-            }
+            });
         });
 
         // Display Success Screen

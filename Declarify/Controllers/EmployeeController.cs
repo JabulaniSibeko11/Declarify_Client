@@ -2,6 +2,7 @@
 using Declarify.Models;
 using Declarify.Models.ViewModels;
 using Declarify.Services;
+using Declarify.Services.API;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -17,15 +18,16 @@ namespace Declarify.Controllers
         private readonly IReviewHelperService _reviewHelper;
 
         private readonly ApplicationDbContext _db;
-
+        private readonly CentralHubApiService _centralHub;
         public EmployeeController(
           IEmployeeDOIService doiService,
-          ILogger<EmployeeController> logger, ApplicationDbContext db, IReviewHelperService reviewHelper)
+          ILogger<EmployeeController> logger,   CentralHubApiService centralHub,ApplicationDbContext db, IReviewHelperService reviewHelper)
         {
             _doiService = doiService;
             _logger = logger;
             _db = db;
             _reviewHelper = reviewHelper;
+            _centralHub = centralHub;
         }
 
         // GET: /employee/dashboard
@@ -80,6 +82,7 @@ namespace Declarify.Controllers
             // Reviewers are line managers or senior management
             return employee.IsLineManager || employee.Employee.IsSeniorManagement;
         }
+       
         // GET: /employee/tasks
         [AllowAnonymous] // Accessed via unique link
         [HttpGet("task")]
@@ -98,6 +101,17 @@ namespace Declarify.Controllers
                     TempData["Error"] = "This link has expired or is invalid. Please request a new one from your administrator.";
                     return View("TokenExpired");
                 }
+
+                CreditCheckResponse? creditCheck = null;
+
+                creditCheck = await _centralHub.CheckCreditBalance();
+
+                if (creditCheck == null || !creditCheck.hasCredits || creditCheck.currentBalance <= 100)
+                {
+                    TempData["ErrorCheckCredits"] = creditCheck == null ? "Cannot verify credits — license server unreachable. Please try again later." : "Your organization has no remaining credits. Please contact your administrator to top up.";
+                    return View("NotEnoughCredits");
+                }
+
 
                 var template = await _doiService.GetFormTemplateForTaskAsync(task.TaskId);
                 if (template == null)
@@ -314,23 +328,7 @@ namespace Declarify.Controllers
                 return StatusCode(500, "Error loading statistics");
             }
         }
-        private int GetCurrentEmployeeId1()
-        {
-            // Get the currently logged-in user's username/email
-            var username = User.Identity?.Name;
-
-            if (string.IsNullOrEmpty(username))
-                throw new InvalidOperationException("User is not logged in");
-
-            // Check Employee table
-            var employee = _db.Employees
-                .FirstOrDefault(e => e.Email_Address == username );
-
-            if (employee == null)
-                throw new InvalidOperationException("Employee not found in database");
-
-            return employee.EmployeeId; // or Id depending on your model
-        }
+        
 
         private int GetCurrentEmployeeId()
         {

@@ -5,11 +5,12 @@ namespace Declarify.Models
     public class EmployeeImportDto
     {
         public string? EmployeeNumber { get; set; }
-        public int? ManagerId { get; set; }
+        public string? ManagerEmployeeNumber { get; set; }
         public string? Full_Name { get; set; }
         public string? Email_Address { get; set; }
         public string? Position { get; set; }
         public string? Department { get; set; }
+        public string? Region { get; set; }
     }
 
     public class EmployeeBulkLoadResult
@@ -55,6 +56,20 @@ namespace Declarify.Models
         public string TemplateName { get; set; } = "";
         public string? Description { get; set; }
         public TemplateConfig Config { get; set; } = new();
+
+        public int TemplateId { get; set; }
+      
+      
+        public TemplateStatus Status { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; }
+    }
+
+    public enum TemplateStatus
+    {
+        Draft = 0,
+        Active = 1,
+        Archived = 2
     }
     public class TemplateConfig
     {

@@ -1,6 +1,7 @@
 using Declarify.Data;
 using Declarify.Models;
 using Declarify.Services;
+using Declarify.Services.API;
 using Declarify.Services.Methods;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -68,6 +69,10 @@ builder.Services.AddScoped<ISubmissionService, SubmissionService>();
 builder.Services.AddScoped<IEmployeeDOIService, EmployeeDOIService>();
 builder.Services.AddScoped<IReviewerService, ReviewerService>();
 builder.Services.AddScoped<IReviewHelperService, ReviewHelperService>();
+
+builder.Services.AddHttpClient<CentralHubApiService>();
+builder.Services.AddScoped<CentralHubApiService>();
+
 // MVC / Razor
 builder.Services.AddControllersWithViews();
 builder.Services.AddRazorPages();

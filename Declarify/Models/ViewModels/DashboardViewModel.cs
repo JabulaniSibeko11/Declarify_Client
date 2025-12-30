@@ -2,6 +2,9 @@
 {
     public class DashboardViewModel
     {
+        public string CompanyName { get; set; }
+        public string AdminName { get; set; }
+        public string? AdminEmail { get; set; }
         // Compliance Metrics
         public int TotalEmployees { get; set; }
         public int TotalTasks { get; set; }
@@ -31,6 +34,8 @@
         public bool IsGoalAchieved { get; set; }
 
         public Template? template { get; set; }
+
+        public Employee? employee { get; set; }
 
         public BulkRequestViewModel BulkData { get; set; } = new BulkRequestViewModel();
     }
@@ -79,9 +84,12 @@
 
     public class TemplateCreateViewModel
     {
+        public int TemplateId { get; set; }
         public string TemplateName { get; set; } = "";
         public string? Description { get; set; }
-        public TemplateConfig Config { get; set; } = new();
+         //public TemplateConfig? Config { get; set; } = new();
+       public string? Config { get; set; }
+        public bool IsPublished { get; set; }
     }
 
     public class TemplateEditViewModel

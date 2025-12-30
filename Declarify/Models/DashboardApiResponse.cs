@@ -2,6 +2,10 @@
 {
     public class DashboardApiResponse
     {
+        public string? CompanyName { get; set; }
+        public string? AdminName { get; set; }
+        public string? AdminEmail { get; set; }
+
         public ComplianceMetrics Metrics { get; set; } = new();
         public List<DepartmentStats> DepartmentBreakdown { get; set; } = new();
         public CreditInfo Credits { get; set; } = new();
@@ -175,6 +179,22 @@
         public string Error { get; set; } = "";
         public string Message { get; set; } = "";
         public string Code { get; set; } = "";
+    }
+
+    public class ClientCompanies
+    {
+        public string CompanyName { get; set; }
+        public string CompanyRegistration { get; set; }
+        public string Industry { get; set; }
+        public DateTime RegisteredDate { get; set; }
+    }
+
+    public class CompanyAdministrators
+    {
+        public string AdminName { get; set; }
+        public string AdminEmail { get; set; }
+        public string PhoneNumber { get; set; }
+        public string Role { get; set; }
     }
 }
 

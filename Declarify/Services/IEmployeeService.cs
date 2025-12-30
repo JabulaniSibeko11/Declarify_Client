@@ -1,4 +1,5 @@
 ﻿using Declarify.Models;
+using Declarify.Models.ViewModels;
 
 namespace Declarify.Services
 {
@@ -13,6 +14,11 @@ namespace Declarify.Services
         Task<Employee> CreateOrUpdateEmployeeAsync(EmployeeImportDto dto);
         Task<bool> DeleteEmployeeAsync(int employeeId);
         Task<int> GetTotalEmployeeCountAsync();
+        Task<List<EmployeeListItemDto>> GetAllActiveEmployeesAsync();
+        Task<List<Employee>> GetPotentialManagersAsync(string position, string department);
+        Task<Employee> CreateEmployeeAsync(EmployeeViewModel model);
+        Task<bool> IsEmployeeNumberUniqueAsync(string employeeNumber);
+        Task<bool> IsEmailUniqueAsync(string email);
     }
     public class NotFoundException : Exception
     {

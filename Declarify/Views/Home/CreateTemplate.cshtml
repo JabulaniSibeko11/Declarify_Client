@@ -1,0 +1,459 @@
+﻿@model Declarify.Models.ViewModels.TemplateCreateViewModel
+
+@{
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Template Builder - Declarify</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="~/css/admindashboardcss.css" rel="stylesheet" />
+    <link href="~/css/createtemplatecss.css" rel="stylesheet" />
+</head>
+<body>
+    <!-- Header -->
+    <header class="modern-header">
+        <div class="header-container">
+            <div class="header-left">
+                <div class="brand-section">
+                    <div class="brand-logo">
+                        <div class="logo-circle"></div>
+                        <div class="brand-text">
+                            <div class="brand-name">Declar</div>
+                            <div class="brand-tagline">Declaration Management</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="header-center">
+                <div class="dashboard-breadcrumb">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                    </svg>
+                    Template Builder
+                </div>
+            </div>
+            <div class="header-right">
+                <button class="btn btn-ghost" onclick="goToDashboard()">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path d="M15 19l-7-7 7-7" />
+                    </svg>
+                    Back to Dashboard
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main>
+        <!-- Progress Indicator -->
+        <div class="wizard-progress">
+            <div class="progress-step active" data-step="1">
+                <div class="progress-step-circle">1</div>
+                <div class="progress-step-label">Template Info</div>
+            </div>
+            <div class="progress-line"></div>
+            <div class="progress-step" data-step="2">
+                <div class="progress-step-circle">2</div>
+                <div class="progress-step-label">Build Template</div>
+            </div>
+            <div class="progress-line"></div>
+            <div class="progress-step" data-step="3">
+                <div class="progress-step-circle">3</div>
+                <div class="progress-step-label">Preview & Publish</div>
+            </div>
+        </div>
+
+        <!-- Step Container -->
+        <div class="step-container">
+            <!-- Step 1: Template Information -->
+            <div class="wizard-step active" id="step1">
+                <div class="step-intro">
+                    <div class="intro-icon">📋</div>
+                    <h3>Template Information</h3>
+                    <p>Start by providing basic information about your Declaration of Interest template</p>
+                </div>
+
+                <div class="form-group-wizard">
+                    <label>Template Name <span class="required-mark">*</span></label>
+                    <input type="text" id="templateName" placeholder="e.g., Annual Declaration of Interest 2025" required>
+                    <small>Give your template a descriptive name that employees will recognize</small>
+                </div>
+
+                <div class="form-group-wizard">
+                    <label>Description</label>
+                    <textarea id="templateDescription" rows="3" placeholder="Brief description of this template and its purpose..."></textarea>
+                    <small>This description will be shown to employees when they complete the form</small>
+                </div>
+
+                <div class="form-grid-2">
+                    <div class="form-group-wizard">
+                        <label>Default Due Date (Days from Issue) <span class="required-mark">*</span></label>
+                        <input type="number" id="defaultDueDays" value="30" min="1" max="365" required>
+                        <small>Days employees have to complete</small>
+                    </div>
+                    <div class="form-group-wizard">
+                        <label>Reminder Schedule</label>
+                        <div class="checkbox-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="reminder7days" checked>
+                                <span>7 days before due date</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="reminderDueDate" checked>
+                                <span>On due date</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-actions">
+                    <button class="btn btn-ghost" onclick="goToDashboard()">Cancel</button>
+                    <button class="btn btn-primary" onclick="goToStep(2)">
+                        Next: Build Template
+                        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path d="M9 5l7 7-7 7" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 2: Build Template -->
+            <div class="wizard-step" id="step2">
+                <div class="step-intro">
+                    <div class="intro-icon">🏗️</div>
+                    <h3>Build Your Template</h3>
+                    <p>Add sections and fields to create your custom declaration form</p>
+                </div>
+
+                <!-- Sections Container -->
+                <div class="builder-workspace">
+                    <div class="workspace-sections" id="sectionsContainer">
+                        <div class="empty-state">
+                            <div class="empty-icon">📋</div>
+                            <h3>Start Building Your Template</h3>
+                            <p>Add your first section to begin</p>
+                            <button class="btn btn-primary" onclick="addSection()">
+                                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path d="M12 4v16m8-8H4" />
+                                </svg>
+                                Add First Section
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-actions">
+                    <button class="btn btn-ghost" onclick="goToStep(1)">
+                        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path d="M15 19l-7-7 7-7" />
+                        </svg>
+                        Back
+                    </button>
+                    <button class="btn btn-primary" onclick="goToStep(3)">
+                        Next: Preview
+                        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path d="M9 5l7 7-7 7" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 3: Preview -->
+            <div class="wizard-step" id="step3">
+                <div class="step-intro">
+                    <div class="intro-icon">👁️</div>
+                    <h3>Preview Your Template</h3>
+                    <p>Review how employees will see this declaration form</p>
+                </div>
+
+                <div class="preview-container-full">
+                    <div class="preview-header-full">
+                        <div class="preview-logo">
+                            <div class="logo-circle">
+                                <svg width="24" height="24" fill="none" stroke="white" stroke-width="3" viewBox="0 0 24 24">
+                                    <path d="M5 13l4 4L19 7" />
+                                </svg>
+                            </div>
+                        </div>
+                        <h1 id="previewTemplateName">Template Name</h1>
+                        <p id="previewTemplateDescription">Template description</p>
+                        <div class="preview-meta">
+                            <div class="meta-item">
+                                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                                <span>Due: <span id="previewDueDate">30 days from issue</span></span>
+                            </div>
+                            <div class="meta-item">
+                                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span id="previewSectionCount">0 sections</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Employee Details Section (Auto-populated) -->
+                    <div class="preview-section-full employee-details-section">
+                        <div class="section-header-preview">
+                            <div class="section-number">📋</div>
+                            <h2>Employee Details</h2>
+                        </div>
+                        <p class="section-disclaimer-preview">ℹ️ These fields will be automatically populated with employee information from the system</p>
+
+                        <div class="preview-fields-grid">
+                            <div class="preview-field-full auto-populated">
+                                <label>Full Name <span class="auto-badge">Auto</span></label>
+                                <div class="preview-input disabled">
+                                    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                        <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                    </svg>
+                                    <span>John Doe</span>
+                                </div>
+                            </div>
+                            <div class="preview-field-full auto-populated">
+                                <label>Employee Number <span class="auto-badge">Auto</span></label>
+                                <div class="preview-input disabled">
+                                    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                        <path d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
+                                    </svg>
+                                    <span>EMP-12345</span>
+                                </div>
+                            </div>
+                            <div class="preview-field-full auto-populated">
+                                <label>Email Address <span class="auto-badge">Auto</span></label>
+                                <div class="preview-input disabled">
+                                    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                        <path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                    </svg>
+                                    <span>john.doe@company.com</span>
+                                </div>
+                            </div>
+                            <div class="preview-field-full auto-populated">
+                                <label>Position <span class="auto-badge">Auto</span></label>
+                                <div class="preview-input disabled">
+                                    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                        <path d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                    </svg>
+                                    <span>Senior Manager</span>
+                                </div>
+                            </div>
+                            <div class="preview-field-full auto-populated">
+                                <label>Department <span class="auto-badge">Auto</span></label>
+                                <div class="preview-input disabled">
+                                    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                        <path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                    </svg>
+                                    <span>Finance</span>
+                                </div>
+                            </div>
+                            <div class="preview-field-full auto-populated">
+                                <label>Date of Assignment <span class="auto-badge">Auto</span></label>
+                                <div class="preview-input disabled">
+                                    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                        <path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                    <span>December 30, 2025</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="previewSectionsContainer"></div>
+                </div>
+
+                <div class="modal-actions">
+                    <button class="btn btn-ghost" onclick="goToStep(2)">
+                        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path d="M15 19l-7-7 7-7" />
+                        </svg>
+                        Back to Edit
+                    </button>
+                    <button class="btn btn-ghost" onclick="saveDraft()">
+                        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                        </svg>
+                        Save as Draft
+                    </button>
+                    <button class="btn btn-primary" onclick="publishTemplate()">
+                        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path d="M5 13l4 4L19 7" />
+                        </svg>
+                        Publish Template
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+    <!-- Add Field Modal -->
+    <div class="modal-overlay" id="addFieldModal">
+        <div class="modal-container add-field-modal-container">
+            <div class="modal-header">
+                <h2>➕ Add Field to Section</h2>
+                <button class="modal-close" onclick="closeAddFieldModal()">×</button>
+            </div>
+            <div class="modal-form">
+                <div class="add-field-step" id="selectFieldTypeStep">
+                    <div class="step-intro">
+                        <h3 style="font-size: 1.5rem;">Select Field Type</h3>
+                        <p>Choose the type of field you want to add</p>
+                    </div>
+
+                    <div class="field-type-grid">
+                        <div class="field-type-card" onclick="selectFieldType('text')">
+                            <div class="field-type-icon">📝</div>
+                            <h4>Text</h4>
+                            <p>Single line text input</p>
+                        </div>
+                        <div class="field-type-card" onclick="selectFieldType('textarea')">
+                            <div class="field-type-icon">📄</div>
+                            <h4>Long Text</h4>
+                            <p>Multi-line text area</p>
+                        </div>
+                        <div class="field-type-card" onclick="selectFieldType('email')">
+                            <div class="field-type-icon">📧</div>
+                            <h4>Email</h4>
+                            <p>Email address input</p>
+                        </div>
+                        <div class="field-type-card" onclick="selectFieldType('number')">
+                            <div class="field-type-icon">#️⃣</div>
+                            <h4>Number</h4>
+                            <p>Numeric input</p>
+                        </div>
+                        <div class="field-type-card" onclick="selectFieldType('currency')">
+                            <div class="field-type-icon">💰</div>
+                            <h4>Currency</h4>
+                            <p>Money amount (ZAR)</p>
+                        </div>
+                        <div class="field-type-card" onclick="selectFieldType('date')">
+                            <div class="field-type-icon">📅</div>
+                            <h4>Date</h4>
+                            <p>Date picker</p>
+                        </div>
+                        <div class="field-type-card" onclick="selectFieldType('boolean')">
+                            <div class="field-type-icon">✓</div>
+                            <h4>Yes/No</h4>
+                            <p>Radio button choice</p>
+                        </div>
+                        <div class="field-type-card" onclick="selectFieldType('checkbox')">
+                            <div class="field-type-icon">☑</div>
+                            <h4>Checkbox</h4>
+                            <p>Agreement checkbox</p>
+                        </div>
+                        <div class="field-type-card" onclick="selectFieldType('select')">
+                            <div class="field-type-icon">▼</div>
+                            <h4>Dropdown</h4>
+                            <p>Select from list</p>
+                        </div>
+                        <div class="field-type-card" onclick="selectFieldType('radio')">
+                            <div class="field-type-icon">◉</div>
+                            <h4>Radio Buttons</h4>
+                            <p>Single choice</p>
+                        </div>
+                        <div class="field-type-card" onclick="selectFieldType('file')">
+                            <div class="field-type-icon">📎</div>
+                            <h4>File Upload</h4>
+                            <p>Document attachment</p>
+                        </div>
+                        <div class="field-type-card" onclick="selectFieldType('phone')">
+                            <div class="field-type-icon">📞</div>
+                            <h4>Phone</h4>
+                            <p>Phone number</p>
+                        </div>
+                        <div class="field-type-card" onclick="selectFieldType('url')">
+                            <div class="field-type-icon">🔗</div>
+                            <h4>URL</h4>
+                            <p>Website link</p>
+                        </div>
+                        <div class="field-type-card" onclick="selectFieldType('table')">
+                            <div class="field-type-icon">⊞</div>
+                            <h4>Table</h4>
+                            <p>Data table with rows</p>
+                        </div>
+                        <div class="field-type-card" onclick="selectFieldType('advancedTable')">
+                            <div class="field-type-icon">⊞⊞</div>
+                            <h4>Advanced Table</h4>
+                            <p>Complex table with merged cells</p>
+                        </div>
+                        <div class="field-type-card" onclick="selectFieldType('signature')">
+                            <div class="field-type-icon">✍</div>
+                            <h4>Signature</h4>
+                            <p>Digital signature</p>
+                        </div>
+                        <div class="field-type-card" onclick="selectFieldType('heading')">
+                            <div class="field-type-icon">H</div>
+                            <h4>Heading</h4>
+                            <p>Section header</p>
+                        </div>
+                        <div class="field-type-card" onclick="selectFieldType('paragraph')">
+                            <div class="field-type-icon">¶</div>
+                            <h4>Paragraph</h4>
+                            <p>Descriptive text</p>
+                        </div>
+                        <div class="field-type-card" onclick="selectFieldType('divider')">
+                            <div class="field-type-icon">—</div>
+                            <h4>Divider</h4>
+                            <p>Visual separator</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="add-field-step" id="configureFieldStep" style="display: none;">
+                    <!-- Content will be dynamically inserted by JS -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Table Builder Modal -->
+    <div class="modal-overlay" id="tableBuilderModal">
+        <div class="modal-container table-builder-container">
+            <div class="modal-header">
+                <h2>🏗️ Build Table</h2>
+                <button class="modal-close" onclick="closeTableBuilder()">×</button>
+            </div>
+            <div class="modal-form">
+                <div class="form-group-wizard">
+                    <label>Table Label <span class="required-mark">*</span></label>
+                    <input type="text" id="tableLabel" placeholder="e.g., List of Directorships">
+                </div>
+
+                <div class="form-group-wizard">
+                    <label>Number of Columns <span class="required-mark">*</span></label>
+                    <input type="number" id="tableColumns" value="3" min="2" max="10" onchange="generateTableColumns()">
+                </div>
+
+                <div id="tableColumnsConfig">
+                    <!-- Column configurations will be inserted here -->
+                </div>
+
+                <div class="form-group-wizard">
+                    <label>Minimum Rows</label>
+                    <input type="number" id="tableMinRows" value="1" min="1" max="20">
+                    <small>Minimum number of rows employees must fill</small>
+                </div>
+
+                <div class="form-group-wizard">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="tableAllowAddRows" checked>
+                        <span>Allow employees to add more rows</span>
+                    </label>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-ghost" onclick="closeTableBuilder()">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="saveTableConfig()">Add Table</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="~/js/templatebuilderjs.js"></script>
+  
+</body>
+</html>

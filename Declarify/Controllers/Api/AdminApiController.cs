@@ -22,6 +22,7 @@ namespace Declarify.Controllers.Api
         private readonly ILicenseService _licenseService;
         private readonly IEmployeeService _employeeService;
         private readonly ITemplateService _templateService;
+        private readonly ICentralHubService _centralHub;
         private readonly ILogger<AdminApiController> _logger;
 
         public AdminApiController(
@@ -30,6 +31,7 @@ namespace Declarify.Controllers.Api
             ILicenseService licenseService,
             IEmployeeService employeeService,
             ITemplateService templateService,
+            ICentralHubService centralHub,
             ILogger<AdminApiController> logger)
         {
             _formTaskService = formTaskService;
@@ -37,6 +39,7 @@ namespace Declarify.Controllers.Api
             _licenseService = licenseService;
             _employeeService = employeeService;
             _templateService = templateService;
+            _centralHub = centralHub;
             _logger = logger;
         }
 
@@ -46,7 +49,7 @@ namespace Declarify.Controllers.Api
 
         /// <summary>
         /// GET /api/admin/dashboard
-        /// Get complete dashboard data including compliance metrics, credits, and license status
+        /// Get complete dashboard data including compliance metrics, credits, license status, company name, and admin name
         /// </summary>
         /// <response code="200">Returns dashboard data</response>
         /// <response code="401">Unauthorized - Admin role required</response>
@@ -69,13 +72,23 @@ namespace Declarify.Controllers.Api
                     });
                 }
 
+                // Get all data including company info from central hub
                 var dashboardData = await _formTaskService.GetComplianceDashboardDataAsync();
-                var creditBalance = await _creditService.GetAvailableCreditsAsync();
+                var creditBalanceResult = await _centralHub.CheckCreditBalance();
                 var licenseStatus = await _licenseService.GetLicenseStatusMessageAsync();
                 var licenseExpiryDate = await _licenseService.GetExpiryDateAsync();
 
+                // Get company information from central hub
+                var companyInfo = await _centralHub.GetCompanyInformation();
+                var adminInfo = await _centralHub.GetCompanyAdministrators();
+
                 var response = new DashboardApiResponse
                 {
+                    // Company and Admin Information
+                    CompanyName = companyInfo?.CompanyName ?? "Unknown Company",
+                    AdminName = adminInfo?.AdminName ?? User.Identity?.Name ?? "Unknown Admin",
+                    AdminEmail = adminInfo?.AdminEmail,
+
                     Metrics = new ComplianceMetrics
                     {
                         TotalEmployees = dashboardData.TotalEmployees,
@@ -99,9 +112,9 @@ namespace Declarify.Controllers.Api
                     }).ToList(),
                     Credits = new CreditInfo
                     {
-                        Balance = creditBalance,
-                        LowBalanceWarning = creditBalance < 50,
-                        CriticalBalanceWarning = creditBalance < 20
+                        Balance = creditBalanceResult?.currentBalance ?? 0,
+                        LowBalanceWarning = (creditBalanceResult?.currentBalance ?? 0) < 50,
+                        CriticalBalanceWarning = (creditBalanceResult?.currentBalance ?? 0) < 20
                     },
                     License = new LicenseInfo
                     {
@@ -704,7 +717,7 @@ namespace Declarify.Controllers.Api
                 return StatusCode(500, new ErrorResponse { Code = "REPORT_ERROR" });
             }
         }
-    
-}
+
+    }
 
 }

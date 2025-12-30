@@ -10,6 +10,7 @@ namespace Declarify.Models
         public string? LicenseKey { get; set; }
         public DateTime ExpiryDate { get; set; } // Annual, e.g., February 1st
 
+        public string? InstanceId { get; set; }
         public bool IsActive { get; set; }
     }
 }

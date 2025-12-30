@@ -2129,3 +2129,497 @@ main {
     }
 }
 
+/* ============================================================================
+   ADVANCED TABLE MODAL STYLES
+   ============================================================================ */
+
+.advanced-table-modal-container {
+    max-width: 1100px !important;
+    width: 95%;
+}
+
+/* Progress Steps for Table Builder */
+.table-progress-steps {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+}
+
+.table-progress-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    position: relative;
+}
+
+    .table-progress-step .step-circle {
+        width: 45px;
+        height: 45px;
+        border-radius: 50%;
+        background: white;
+        border: 3px solid #CBD5E1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 1.125rem;
+        color: #CBD5E1;
+        transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        z-index: 1;
+    }
+
+    .table-progress-step.active .step-circle {
+        background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-glow) 100%);
+        border-color: var(--color-accent);
+        color: white;
+        box-shadow: 0 4px 20px rgba(0, 194, 203, 0.4);
+        transform: scale(1.1);
+    }
+
+    .table-progress-step.completed .step-circle {
+        background: var(--color-success);
+        border-color: var(--color-success);
+        color: white;
+    }
+
+    .table-progress-step .step-label {
+        font-size: 0.8125rem;
+        font-weight: 600;
+        color: var(--color-text-muted);
+        transition: color 0.3s;
+        white-space: nowrap;
+    }
+
+    .table-progress-step.active .step-label {
+        color: var(--color-accent);
+    }
+
+    .table-progress-step.completed .step-label {
+        color: var(--color-success);
+    }
+
+.table-progress-connector {
+    width: 80px;
+    height: 3px;
+    background: #CBD5E1;
+    position: relative;
+    top: -20px;
+    transition: background 0.4s;
+}
+
+.table-progress-step.completed + .table-progress-connector {
+    background: var(--color-success);
+}
+
+/* Table Builder Step Content */
+.table-builder-step {
+    animation: fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Column Management */
+.columns-list {
+    max-height: 300px;
+    overflow-y: auto;
+    padding-right: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.column-item {
+    margin-bottom: 0.75rem;
+}
+
+.column-number {
+    width: 32px;
+    height: 32px;
+    background: #e0e7ff;
+    color: #4f46e5;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 14px;
+    flex-shrink: 0;
+}
+
+.column-name-input,
+.column-type-select {
+    padding: 0.75rem 1rem;
+    border: 2px solid rgba(8, 27, 56, 0.1);
+    border-radius: 8px;
+    font-size: 0.9375rem;
+    transition: all 0.3s;
+}
+
+    .column-name-input:focus,
+    .column-type-select:focus {
+        outline: none;
+        border-color: var(--color-accent);
+        box-shadow: 0 0 0 3px rgba(0, 194, 203, 0.1);
+    }
+
+.btn-add-column {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    background: var(--color-bg-canvas);
+    border: 2px dashed rgba(0, 194, 203, 0.3);
+    border-radius: 8px;
+    color: var(--color-accent);
+    font-weight: 600;
+    font-size: 0.9375rem;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+    .btn-add-column:hover {
+        background: white;
+        border-color: var(--color-accent);
+        border-style: solid;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(0, 194, 203, 0.2);
+    }
+
+.btn-icon-danger {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    border: none;
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--color-danger);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s;
+}
+
+    .btn-icon-danger:hover {
+        background: var(--color-danger);
+        color: white;
+        transform: scale(1.1);
+    }
+
+/* Info Box */
+.info-box {
+    display: flex;
+    gap: 1rem;
+    padding: 1.5rem;
+    background: linear-gradient(135deg, rgba(0, 194, 203, 0.05) 0%, rgba(0, 229, 255, 0.03) 100%);
+    border: 1px solid rgba(0, 194, 203, 0.2);
+    border-radius: 12px;
+}
+
+    .info-box svg {
+        flex-shrink: 0;
+        color: var(--color-accent);
+    }
+
+    .info-box strong {
+        display: block;
+        color: var(--color-primary);
+        margin-bottom: 0.5rem;
+    }
+
+    .info-box ul {
+        margin: 0;
+        padding-left: 1.25rem;
+    }
+
+    .info-box li {
+        margin-bottom: 0.5rem;
+        color: var(--color-text-main);
+        line-height: 1.5;
+    }
+
+/* Table Toolbar */
+.table-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem;
+    background: var(--color-bg-canvas);
+    border-radius: 12px;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+}
+
+    .table-toolbar button {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.625rem 1.25rem;
+        background: white;
+        border: 2px solid rgba(8, 27, 56, 0.1);
+        border-radius: 8px;
+        color: var(--color-text-main);
+        font-weight: 600;
+        font-size: 0.875rem;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+        .table-toolbar button:hover {
+            border-color: var(--color-accent);
+            color: var(--color-accent);
+            background: linear-gradient(135deg, rgba(0, 194, 203, 0.05) 0%, rgba(0, 229, 255, 0.03) 100%);
+            transform: translateY(-2px);
+        }
+
+        .table-toolbar button svg {
+            transition: transform 0.3s;
+        }
+
+        .table-toolbar button:hover svg {
+            transform: scale(1.1);
+        }
+
+/* Advanced Table Grid */
+.advanced-table-grid {
+    display: grid;
+    gap: 8px;
+    padding: 1rem;
+    background: white;
+    border-radius: 12px;
+    border: 2px solid rgba(8, 27, 56, 0.08);
+    margin-bottom: 1.5rem;
+    max-height: 500px;
+    overflow: auto;
+}
+
+.table-grid-cell {
+    min-height: 60px;
+    padding: 12px;
+    background: var(--color-bg-canvas);
+    border: 2px solid rgba(8, 27, 56, 0.1);
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.875rem;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    user-select: none;
+}
+
+    .table-grid-cell:hover {
+        border-color: var(--color-accent);
+        background: white;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(0, 194, 203, 0.1);
+    }
+
+    .table-grid-cell.header {
+        background: linear-gradient(135deg, rgba(8, 27, 56, 0.05) 0%, rgba(8, 27, 56, 0.02) 100%);
+        font-weight: 600;
+        color: var(--color-primary);
+    }
+
+    .table-grid-cell.selected {
+        border-color: #3b82f6;
+        background: #dbeafe;
+        color: #1e40af;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+    }
+
+    .table-grid-cell.merged {
+        background: #dcfce7;
+        border-color: #22c55e;
+        color: #15803d;
+    }
+
+    .table-grid-cell.assigned {
+        background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.05) 100%);
+        border-color: var(--color-success);
+        font-weight: 600;
+    }
+
+/* Column Assignment Panel */
+.assignment-panel {
+    padding: 1.5rem;
+    background: linear-gradient(135deg, rgba(0, 194, 203, 0.05) 0%, rgba(0, 229, 255, 0.03) 100%);
+    border: 2px solid rgba(0, 194, 203, 0.2);
+    border-radius: 12px;
+    margin-top: 1.5rem;
+    animation: slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+    .assignment-panel h4 {
+        font-weight: 700;
+        color: var(--color-primary);
+        margin-bottom: 1rem;
+        font-size: 1rem;
+    }
+
+    .assignment-panel .form-control {
+        width: 100%;
+        padding: 0.875rem 1rem;
+        border: 2px solid rgba(8, 27, 56, 0.1);
+        border-radius: 8px;
+        font-size: 1rem;
+        transition: all 0.3s;
+    }
+
+        .assignment-panel .form-control:focus {
+            outline: none;
+            border-color: var(--color-accent);
+            box-shadow: 0 0 0 3px rgba(0, 194, 203, 0.1);
+        }
+
+/* Table Preview Container */
+.table-preview-container {
+    padding: 1.5rem;
+    background: var(--color-bg-canvas);
+    border-radius: 12px;
+}
+
+    .table-preview-container table {
+        width: 100%;
+        border-collapse: collapse;
+        background: white;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 10px rgba(8, 27, 56, 0.06);
+    }
+
+    .table-preview-container th,
+    .table-preview-container td {
+        padding: 12px 16px;
+        border: 1px solid #d1d5db;
+        text-align: left;
+    }
+
+    .table-preview-container th {
+        background: #f3f4f6;
+        font-weight: 600;
+        color: #111827;
+    }
+
+    .table-preview-container td {
+        color: #6b7280;
+    }
+
+/* Modal Footer Adjustments */
+.modal-footer {
+    display: flex;
+    gap: 1rem;
+    padding: 1.5rem 2rem;
+    border-top: 1px solid rgba(8, 27, 56, 0.08);
+    background: var(--color-bg-canvas);
+}
+
+/* Form Control Styles */
+.form-control {
+    width: 100%;
+    padding: 0.875rem 1rem;
+    border: 2px solid rgba(8, 27, 56, 0.1);
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 1rem;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+    .form-control:focus {
+        outline: none;
+        border-color: var(--color-accent);
+        box-shadow: 0 0 0 4px rgba(0, 194, 203, 0.1);
+    }
+
+.required-mark {
+    color: var(--color-danger);
+    font-weight: 700;
+    margin-left: 0.25rem;
+}
+
+/* Button Styles for Advanced Table */
+.btn-sm {
+    padding: 0.5rem 1rem !important;
+    font-size: 0.875rem !important;
+}
+
+/* Scrollbar Styling */
+.columns-list::-webkit-scrollbar,
+.advanced-table-grid::-webkit-scrollbar {
+    width: 8px;
+}
+
+.columns-list::-webkit-scrollbar-track,
+.advanced-table-grid::-webkit-scrollbar-track {
+    background: var(--color-bg-canvas);
+    border-radius: 4px;
+}
+
+.columns-list::-webkit-scrollbar-thumb,
+.advanced-table-grid::-webkit-scrollbar-thumb {
+    background: rgba(0, 194, 203, 0.3);
+    border-radius: 4px;
+}
+
+    .columns-list::-webkit-scrollbar-thumb:hover,
+    .advanced-table-grid::-webkit-scrollbar-thumb:hover {
+        background: rgba(0, 194, 203, 0.5);
+    }
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .advanced-table-modal-container {
+        width: 98%;
+        max-width: none;
+    }
+
+    .table-progress-steps {
+        padding: 1rem;
+    }
+
+    .table-progress-step .step-circle {
+        width: 36px;
+        height: 36px;
+        font-size: 1rem;
+    }
+
+    .table-progress-connector {
+        width: 50px;
+    }
+
+    .table-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+        .table-toolbar button {
+            width: 100%;
+            justify-content: center;
+        }
+
+    .advanced-table-grid {
+        gap: 6px;
+        padding: 0.75rem;
+    }
+
+    .column-item > div {
+        flex-wrap: wrap;
+    }
+
+    .column-name-input {
+        width: 100%;
+        margin-bottom: 0.5rem;
+    }
+}
+
+/* Animation for slide down */
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

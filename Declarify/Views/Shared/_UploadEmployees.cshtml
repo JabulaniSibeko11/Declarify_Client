@@ -1,4 +1,4 @@
-﻿<!-- Add Employee Modal with Toggle -->
+﻿<!-- Add Employee Modal with Toggle and Dynamic Manager Dropdown -->
 <div class="modal-overlay" id="addEmployeeModal">
     <div class="modal-container">
         <div class="modal-header">
@@ -29,49 +29,112 @@
         </div>
 
         <!-- Single Employee Form -->
-        <form asp-action="CreateEmployee" asp-controller="Home" method="post" class="modal-form" id="singleForm">
+        <form asp-action="CreateEmployee" asp-controller="Home" method="post" class="modal-form" id="singleForm" onsubmit="return validateForm()">
             @Html.AntiForgeryToken()
 
             <div class="form-grid">
                 <div class="form-group">
-                    <label>Employee Number</label>
-                    <input type="text" name="EmployeeNumber" required placeholder="EMP001" />
+                    <label>Employee Number <span class="required">*</span></label>
+                    <input type="text"
+                           name="EmployeeNumber"
+                           id="employeeNumber"
+                           required
+                           placeholder="EMP001"
+                           onblur="checkEmployeeNumber(this.value)" />
+                    <span class="validation-message" id="employeeNumberValidation"></span>
                 </div>
 
                 <div class="form-group">
-                    <label>Full Name</label>
-                    <input type="text" name="Full_Name" required placeholder="John" />
+                    <label>Full Name <span class="required">*</span></label>
+                    <input type="text"
+                           name="Full_Name"
+                           id="fullName"
+                           required
+                           placeholder="John" />
                 </div>
 
                 <div class="form-group">
-                    <label>Surname</label>
-                    <input type="text" name="Surname_Name" required placeholder="Doe" />
+                    <label>Surname <span class="required">*</span></label>
+                    <input type="text"
+                           name="Surname_Name"
+                           id="surname"
+                           required
+                           placeholder="Doe" />
                 </div>
 
                 <div class="form-group">
-                    <label>Email Address</label>
-                    <input type="email" name="Email" required placeholder="john.doe@company.org" />
+                    <label>Email Address <span class="required">*</span></label>
+                    <input type="email"
+                           name="Email"
+                           id="email"
+                           required
+                           placeholder="john.doe@company.org"
+                           onblur="checkEmail(this.value)" />
+                    <span class="validation-message" id="emailValidation"></span>
                 </div>
 
                 <div class="form-group">
-                    <label>Position</label>
-                    <input type="text" name="Position" required placeholder="Senior Manager" />
+                    <label>Position <span class="required">*</span></label>
+                    <input type="text"
+                           name="Position"
+                           id="position"
+                           required
+                           placeholder="Senior Manager"
+                           onblur="updateManagerDropdown()" />
                 </div>
 
                 <div class="form-group">
-                    <label>Department</label>
-                    <input type="text" name="Department" required placeholder="Finance" />
+                    <label>Department <span class="required">*</span></label>
+                    <input type="text"
+                           name="Department"
+                           id="department"
+                           required
+                           placeholder="Finance"
+                           onblur="updateManagerDropdown()" />
                 </div>
 
                 <div class="form-group full-width">
-                    <label>Manager ID (Optional)</label>
-                    <input type="number" name="ManagerId" placeholder="Leave empty if no manager" />
+                    <label>
+                        Line Manager (Optional)
+                        <span class="info-tooltip" title="Select the direct supervisor for this employee">ℹ️</span>
+                    </label>
+                    <select name="ManagerId" id="managerDropdown" class="manager-select">
+                        <option value="">-- No Manager / CEO Level --</option>
+                    </select>
+                    <span class="help-text">Managers are filtered based on position and department</span>
                 </div>
+
+                <div class="form-group">
+                    <label>Region (Optional)</label>
+                    <input type="text"
+                           name="Region"
+                           id="region"
+                           placeholder="e.g., North America, EMEA" />
+                </div>
+
+                <div class="form-group">
+                    <label>Domain (Optional)</label>
+                    <input type="number"
+                           name="DomainId"
+                           id="domainId"
+                           placeholder="Leave empty if not applicable" />
+                </div>
+            </div>
+
+            <div class="form-summary" id="formSummary" style="display: none;">
+                <div class="summary-header">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path d="M22 11.08V12a10 10 0 11-5.93-9.14" />
+                        <polyline points="22 4 12 14.01 9 11.01" />
+                    </svg>
+                    <span>Review Employee Details</span>
+                </div>
+                <div id="summaryContent"></div>
             </div>
 
             <div class="modal-actions">
                 <button type="button" class="btn btn-ghost" onclick="closeModal()">Cancel</button>
-                <button type="submit" class="btn btn-primary">
+                <button type="submit" class="btn btn-primary" id="submitBtn">
                     <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <path d="M12 4v16m8-8H4" />
                     </svg>
@@ -117,10 +180,11 @@
                 </div>
                 <ul>
                     <li><strong>File Type:</strong> .xlsx or .xls format</li>
-                    <li><strong>Columns:</strong> EmployeeNumber, Full_Name, Email_Address, Position, Department, ManagerId</li>
-                    <li><strong>Example Row:</strong> EMP001 | John Doe | john.doe@company.org | Senior Manager | Finance | (empty)</li>
-                    <li>Leave ManagerId empty if employee has no manager</li>
-                    <li>ManagerId references the database Employee ID, not the Employee Number</li>
+                    <li><strong>Required Columns:</strong> EmployeeNumber, Full_Name, Surname_Name, Email, Position, Department</li>
+                    <li><strong>Optional Columns:</strong> ManagerId, Region, DomainId</li>
+                    <li><strong>Example Row:</strong> EMP001 | John | Doe | john.doe@company.org | Senior Manager | Finance</li>
+                    <li>Manager Employee Number references the database Employee ID from existing employees</li>
+                    <li>Each employee will receive login credentials via email</li>
                 </ul>
                 <a href="@Url.Action("DownloadEmployeeTemplate", "Home")" class="download-template">
                     <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -147,3 +211,84 @@
     </div>
 </div>
 
+<style>
+    /* Additional styles for new features */
+    .required {
+        color: #ef4444;
+    }
+
+    .validation-message {
+        display: block;
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+        min-height: 1.25rem;
+    }
+
+        .validation-message.success {
+            color: #10b981;
+        }
+
+        .validation-message.error {
+            color: #ef4444;
+        }
+
+    .manager-select {
+        width: 100%;
+        padding: 0.75rem;
+        border: 1px solid #e5e7eb;
+        border-radius: 0.5rem;
+        font-size: 0.9375rem;
+        background-color: white;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+        .manager-select:focus {
+            outline: none;
+            border-color: #0891b2;
+            box-shadow: 0 0 0 3px rgba(8, 145, 178, 0.1);
+        }
+
+        .manager-select option {
+            padding: 0.5rem;
+        }
+
+    .info-tooltip {
+        cursor: help;
+        margin-left: 0.25rem;
+        font-size: 0.875rem;
+    }
+
+    .help-text {
+        display: block;
+        font-size: 0.8125rem;
+        color: #6b7280;
+        margin-top: 0.25rem;
+    }
+
+    .form-summary {
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        margin-top: 1.5rem;
+    }
+
+    .summary-header {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-weight: 600;
+        color: #1f2937;
+        margin-bottom: 0.75rem;
+    }
+
+    #summaryContent {
+        font-size: 0.875rem;
+        color: #4b5563;
+    }
+
+        #summaryContent p {
+            margin: 0.25rem 0;
+        }
+</style>

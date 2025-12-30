@@ -48,7 +48,7 @@ namespace Declarify.Services.Methods
                 TemplateName = definition.TemplateName,
                 Description = definition.Description,
                 TemplateConfig = System.Text.Json.JsonSerializer.Serialize(definition.Config),
-                Status = "Draft",
+                Status = "Active",
                 CreatedDate = DateTime.UtcNow
             };
 
