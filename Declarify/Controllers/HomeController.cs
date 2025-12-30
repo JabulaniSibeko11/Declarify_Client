@@ -1,3 +1,12 @@
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Diagnostics;
+using System.Drawing;
+using System.Globalization;
+using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
 using CsvHelper;
 using CsvHelper.Configuration;
 using Declarify.Data;
@@ -14,16 +23,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.VisualStudio.Web.CodeGenerators.Mvc.Templates.Blazor;
 using Newtonsoft.Json;
 using OfficeOpenXml;
+using OfficeOpenXml.FormulaParsing.Excel.Functions.Database;
 using OfficeOpenXml.Style;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Diagnostics;
-using System.Drawing;
-using System.Globalization;
-using System.Security.Claims;
-using System.Security.Cryptography;
-using System.Text;
-using System.Text.Json;
 using LicenseContext = OfficeOpenXml.LicenseContext;
 namespace Declarify.Controllers
 {
@@ -61,9 +62,6 @@ namespace Declarify.Controllers
             _signInManager = signInManager;
             _db = db;
             _EmailS= email;
-            _roleManager = roleManager;
-            _centralHub = centralHub;
-
         }
         public async Task<IActionResult> TestPing()
         {
@@ -103,125 +101,6 @@ namespace Declarify.Controllers
             }
             return View();
         }
-
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Activate(string licenseKey)
-        {
-            if (string.IsNullOrWhiteSpace(licenseKey))
-            {
-                return Json(new { isValid = false, message = "Please enter a license key" });
-            }
-
-            // Call activation api
-            var result = await _centralHub.ActivateLicenseAsync(licenseKey);
-
-            if (result == null || !result.isValid)
-            {
-                return Json(new
-                {
-                    isValid = false,
-                    message = result?.message ?? "Unable to validate license. Please try again.",
-                    IsExpired = result?.isValid ?? false
-                });
-            }
-
-            //1. SUCCESS! Save the company details for future use
-            await _LS.SyncLicenseFromCentralAsync(licenseKey, result.companyId, result.ExpiryDate, result.isValid);
-
-            //2. Collect admin initial
-            if (!string.IsNullOrWhiteSpace(result.Email))
-            {
-                // Check if user already exists
-                var existingUser = await _userManager.FindByEmailAsync(result.Email);
-
-                ApplicationUser adminUser;
-
-                if (existingUser == null)
-                {
-                    // Create new Identity user
-                    adminUser = new ApplicationUser
-                    {
-                        UserName = result.Email,
-                        Email = result.Email,
-                        Full_Name = result.FullName ?? "System Administrator",
-                        PhoneNumber = result.PhoneNumber,
-                        roleInCompany = "Admin",
-                        Role = "Admin",
-                        Department = result.Department,
-                        IsFirstLogin = true,
-                        EmailConfirmed = true
-                    };
-
-                    var createResult = await _userManager.CreateAsync(adminUser);
-
-                    if (!createResult.Succeeded)
-                    {
-                        // Log errors
-                        return Json(new { isValid = false, message = "Failed to create admin account" });
-                    }
-
-                    await _userManager.AddToRoleAsync(adminUser, "Admin");
-                }
-                else
-                {
-                    adminUser = existingUser;
-                    // Update details if changed
-                    adminUser.Full_Name = result.FullName ?? adminUser.Full_Name;
-                    adminUser.PhoneNumber = result.PhoneNumber ?? adminUser.PhoneNumber;
-                    await _userManager.UpdateAsync(adminUser);
-                }
-
-                // 3. Create or update Employee record
-                var employee = await _db.Employees.Include(e => e.ApplicationUser).FirstOrDefaultAsync(e => e.Email_Address == result.Email);
-
-                if (employee == null)
-                {
-                    employee = new Employee
-                    {
-                        Full_Name = result.FullName ?? "System Administrator",
-                        Email_Address = result.Email,
-                        Position = result.JobTitle ?? "Administrator",
-                        Department = result.Department,
-                        IsActive = true,
-                        ApplicationUserId = adminUser.Id,
-                        ApplicationUser = adminUser
-                    };
-                    _db.Employees.Add(employee);
-                }
-                else
-                {
-                    employee.Full_Name = result.FullName ?? employee.Full_Name;
-                    employee.Position = result.JobTitle ?? employee.Position;
-                    employee.Department = result.Department ?? employee.Department;
-                    employee.ApplicationUserId = adminUser.Id;
-                }
-
-                // Link back
-                //adminUser.EmployeeId = employee.EmployeeId;
-
-                await _db.SaveChangesAsync();
-
-                // Update user with EmployeeId
-                adminUser.EmployeeId = employee.EmployeeId;
-                await _userManager.UpdateAsync(adminUser);
-            }
-
-
-            return Json(new
-            {
-                isValid = true,
-                companyName = result.companyName,
-                LicenseKey = licenseKey,
-                emailDomain = result.emailDomain ?? "",
-                expiryDate = result.ExpiryDate,
-                daysUntilExpiry = result.daysUntilExpiry,
-                IsExpired = result.isValid,
-                message = "License activated successfully"
-            });
-        }
-
-
 
         [HttpGet]
         [AllowAnonymous]
@@ -605,46 +484,42 @@ namespace Declarify.Controllers
                 // Check license first (NFR 5.2)
                 if (!await _LS.IsLicenseValidAsync())
                 {
-                    // return View("LicenseExpired");
-                    return View("LandingPage");
+                    return View("LicenseExpired");
                 }
                 if (!User.Identity.IsAuthenticated)
                 {
                     // Redirect to login page (adjust the route if needed)
                     return RedirectToAction("Login", "Home");
                 }
-
-                //API Calls
-                var creditBalanceResult = await _centralHub.CheckCreditBalance();
                 var dashboardData = await _FS.GetComplianceDashboardDataAsync();
-                var creditBatches = await _CS.GetCreditBatchesAsync();
-                var licenseStatus = await _LS.GetLicenseStatusMessageAsync();
-                var licenseExpiryDate = await _LS.GetExpiryDateAsync();
+            var creditBalance = await _CS.GetAvailableCreditsAsync();
+            var creditBatches = await _CS.GetCreditBatchesAsync();
+            var licenseStatus = await _LS.GetLicenseStatusMessageAsync();
+            var licenseExpiryDate = await _LS.GetExpiryDateAsync();
                 var templates = (await _TS.GetActiveTemplatesAsync()).ToList();
 
                 // Get company information from central hub
                 //var companyInfo = await _centralHubService.GetCompanyInformation();
                 //var adminInfo = await _centralHubService.GetCompanyAdministrators();
 
-                // Check for expiring credits
-                var expiringCredits = await _CS.GetExpiringCreditsAsync(30);
+                // Check for low credit balance
+                var lowCreditWarning = creditBalance < 50;
+            var criticalCreditWarning = creditBalance < 20;
 
-                var viewModel = new DashboardViewModel
-                {
-                    // Company and Admin Information from Central Hub
-                    //CompanyName = companyInfo?.CompanyName ?? "Unknown Company",
-                    //AdminName = adminInfo?.AdminName ?? User.Identity?.Name ?? "Admin",
-                    //AdminEmail = adminInfo?.AdminEmail,
+            // Check for expiring credits
+            var expiringCredits = await _CS.GetExpiringCreditsAsync(30);
 
-                    // Compliance Metrics (FR 4.5.1)
-                    TotalEmployees = dashboardData.TotalEmployees,
-                    TotalTasks = dashboardData.TotalTasks,
-                    OutstandingCount = dashboardData.OutstandingCount,
-                    OverdueCount = dashboardData.OverdueCount,
-                    SubmittedCount = dashboardData.SubmittedCount,
-                    ReviewedCount = dashboardData.ReviewedCount,
-                    NonCompliantCount = dashboardData.NonCompliantCount,
-                    CompliancePercentage = dashboardData.CompliancePercentage,
+            var viewModel = new DashboardViewModel
+            {
+                // Compliance Metrics (FR 4.5.1)
+                TotalEmployees = dashboardData.TotalEmployees,
+                TotalTasks = dashboardData.TotalTasks,
+                OutstandingCount = dashboardData.OutstandingCount,
+                OverdueCount = dashboardData.OverdueCount,
+                SubmittedCount = dashboardData.SubmittedCount,
+                ReviewedCount = dashboardData.ReviewedCount,
+                NonCompliantCount = dashboardData.NonCompliantCount,
+                CompliancePercentage = dashboardData.CompliancePercentage,
 
                     // Department Breakdown (FR 4.5.3)
                     DepartmentBreakdown = dashboardData.DepartmentBreakdown,
@@ -661,19 +536,22 @@ namespace Declarify.Controllers
                     LicenseExpiryDate = licenseExpiryDate,
                     DaysUntilLicenseExpiry = (licenseExpiryDate - DateTime.UtcNow).Days,
 
-                    // Goal Tracking (G1: 95% compliance)
-                    GoalComplianceRate = 95.0,
-                    IsGoalAchieved = dashboardData.CompliancePercentage >= 95.0,
+                // Goal Tracking (G1: 95% compliance)
+                GoalComplianceRate = 95.0,
+                IsGoalAchieved = dashboardData.CompliancePercentage >= 95.0,
+                // === POPULATE BULK REQUEST DATA FOR MODAL (FR 4.3.1) ===
 
-                    // === POPULATE BULK REQUEST DATA FOR MODAL (FR 4.3.1) ===
-                    BulkData = new BulkRequestViewModel
-                    {
-                        Templates = templates,
-                        Employees = await _ES.GetAllEmployeesAsync(),
-                        Departments = await _ES.GetDepartmentEmployeeCountsAsync(),
-                        SuggestedDueDate = DateTime.UtcNow.AddDays(30)
-                    },
-                };
+                BulkData = new BulkRequestViewModel
+                {
+                      Templates = templates,
+                   // Templates = (await _TS.GetActiveTemplatesAsync()).ToList(),
+                    Employees = await _ES.GetAllEmployeesAsync(),
+                    Departments = await _ES.GetDepartmentEmployeeCountsAsync(),
+                    SuggestedDueDate = DateTime.UtcNow.AddDays(30)
+                },
+                // In your Index method, after populating BulkData
+
+            };
 
                 return View(viewModel);
             }
@@ -681,7 +559,8 @@ namespace Declarify.Controllers
             {
                 _logger.LogError(ex, "Error loading admin dashboard");
                 TempData["Error"] = "Failed to load dashboard data. Please try again.";
-                return RedirectToAction("Login");
+                return View(new DashboardViewModel());
+
             }
         }
 

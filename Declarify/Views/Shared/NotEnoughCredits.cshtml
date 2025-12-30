@@ -1,0 +1,15 @@
+﻿@{
+    ViewData["Title"] = "Not Enough Credits";
+    // Layout = "_Layout"; 
+}
+
+<div class="text-center mt-5">
+    <h1>Not Enough Credits</h1>
+    <p class="lead mt-4">
+        @(TempData["ErrorCheckCredits"] ?? "Your organization does not have sufficient credits to access this feature.")
+    </p>
+    <p>
+        Please contact your administrator.
+    </p>
+    <a href="/" class="btn btn-primary mt-3">Return Home</a>
+</div>

@@ -1,4 +1,5 @@
 using Declarify.Data;
+using Declarify.Middleware;
 using Declarify.Models;
 using Declarify.Services;
 using Declarify.Services.API;
@@ -96,6 +97,7 @@ app.UseStaticFiles();
 app.UseRouting();
 
 app.UseAuthentication(); // ?? REQUIRED for Identity
+app.UseMiddleware<LicenseCheckMiddleware>();
 app.UseAuthorization();
 
 app.MapControllerRoute(
