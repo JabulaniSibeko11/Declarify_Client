@@ -8,6 +8,7 @@ namespace Declarify.Services
         Task<EmployeeBulkLoadResult> BulkLoadEmployeesAsync(List<EmployeeImportDto> employees);
         Task<List<Employee>> GetAllEmployeesAsync();
         Task<Employee?> GetEmployeeByIdAsync(int employeeId);
+        Task<Employee?> GetEmployeeByEmailAsync(string employeeEmail);
         Task<List<Employee>> GetSubordinatesAsync(int managerId);
         Task<List<Employee>> GetEmployeesByDepartmentAsync(string department);
         Task<Dictionary<string, int>> GetDepartmentEmployeeCountsAsync();

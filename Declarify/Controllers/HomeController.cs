@@ -7,6 +7,7 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using Azure.Core;
 using CsvHelper;
 using CsvHelper.Configuration;
 using Declarify.Data;
@@ -58,6 +59,7 @@ namespace Declarify.Controllers
             _VS = vS;
             _US = uS;
             _SS = sS;
+            _centralHub = centralHub;
             _userManager = userManager;
             _signInManager = signInManager;
             _db = db;
@@ -101,6 +103,124 @@ namespace Declarify.Controllers
             }
             return View();
         }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Activate(string licenseKey)
+        {
+            if (string.IsNullOrWhiteSpace(licenseKey))
+            {
+                return Json(new { isValid = false, message = "Please enter a license key" });
+            }
+
+            // Call activation api
+            var result = await _centralHub.ActivateLicenseAsync(licenseKey);
+
+            if (result == null || !result.isValid)
+            {
+                return Json(new
+                {
+                    isValid = false,
+                    message = result?.message ?? "Unable to validate license. Please try again.",
+                    IsExpired = result?.isValid ?? false
+                });
+            }
+
+            //1. SUCCESS! Save the company details for future use
+            await _LS.SyncLicenseFromCentralAsync(licenseKey, result.companyId, result.ExpiryDate, result.isValid);
+
+            //2. Collect admin initial
+            if (!string.IsNullOrWhiteSpace(result.Email))
+            {
+                // Check if user already exists
+                var existingUser = await _userManager.FindByEmailAsync(result.Email);
+
+                ApplicationUser adminUser;
+
+                if (existingUser == null)
+                {
+                    // Create new Identity user
+                    adminUser = new ApplicationUser
+                    {
+                        UserName = result.Email,
+                        Email = result.Email,
+                        Full_Name = result.FullName ?? "System Administrator",
+                        PhoneNumber = result.PhoneNumber,
+                        roleInCompany = "Admin",
+                        Role = "Admin",
+                        Department = result.Department,
+                        IsFirstLogin = true,
+                        EmailConfirmed = true
+                    };
+
+                    var createResult = await _userManager.CreateAsync(adminUser);
+
+                    if (!createResult.Succeeded)
+                    {
+                        // Log errors
+                        return Json(new { isValid = false, message = "Failed to create admin account" });
+                    }
+
+                    await _userManager.AddToRoleAsync(adminUser, "Admin");
+                }
+                else
+                {
+                    adminUser = existingUser;
+                    // Update details if changed
+                    adminUser.Full_Name = result.FullName ?? adminUser.Full_Name;
+                    adminUser.PhoneNumber = result.PhoneNumber ?? adminUser.PhoneNumber;
+                    await _userManager.UpdateAsync(adminUser);
+                }
+
+                // 3. Create or update Employee record
+                var employee = await _db.Employees.Include(e => e.ApplicationUser).FirstOrDefaultAsync(e => e.Email_Address == result.Email);
+
+                if (employee == null)
+                {
+                    employee = new Employee
+                    {
+                        Full_Name = result.FullName ?? "System Administrator",
+                        Email_Address = result.Email,
+                        Position = result.JobTitle ?? "Administrator",
+                        Department = result.Department,
+                        IsActive = true,
+                        ApplicationUserId = adminUser.Id,
+                        ApplicationUser = adminUser
+                    };
+                    _db.Employees.Add(employee);
+                }
+                else
+                {
+                    employee.Full_Name = result.FullName ?? employee.Full_Name;
+                    employee.Position = result.JobTitle ?? employee.Position;
+                    employee.Department = result.Department ?? employee.Department;
+                    employee.ApplicationUserId = adminUser.Id;
+                }
+
+                // Link back
+                //adminUser.EmployeeId = employee.EmployeeId;
+
+                await _db.SaveChangesAsync();
+
+                // Update user with EmployeeId
+                adminUser.EmployeeId = employee.EmployeeId;
+                await _userManager.UpdateAsync(adminUser);
+            }
+
+
+            return Json(new
+            {
+                isValid = true,
+                companyName = result.companyName,
+                LicenseKey = licenseKey,
+                emailDomain = result.emailDomain ?? "",
+                expiryDate = result.ExpiryDate,
+                daysUntilExpiry = result.daysUntilExpiry,
+                IsExpired = result.isValid,
+                message = "License activated successfully"
+            });
+        }
+
 
         [HttpGet]
         [AllowAnonymous]
@@ -474,7 +594,9 @@ namespace Declarify.Controllers
                 "executive" or "it deputy director" or "senior management" => RedirectToAction("ExecutiveDashboard", "Executive"), // Executive Dashboard (FR 4.5.3)
                 _ => RedirectToAction("Dashboard", "Employee") // Default fallback
             };
-        }     // Main dashboard view - displays compliance overview (FR 4.5.1)
+        }
+
+        // Main dashboard view - displays compliance overview (FR 4.5.1)
         [HttpGet("")]
         [HttpGet("index")]
         public async Task<IActionResult> Index()
@@ -488,25 +610,42 @@ namespace Declarify.Controllers
                     return View("LandingPage");
                 }
 
-                //if (!User.Identity.IsAuthenticated)
-                //{
-                //    // Redirect to login page (adjust the route if needed)
-                //    return RedirectToAction("Login", "Home");
-                //}
+                if (!User.Identity.IsAuthenticated)
+                {
+                    // Redirect to login page (adjust the route if needed)
+                    return RedirectToAction("Login", "Home");
+                }
 
                 //API Calls
-                //var creditBalanceResult = await _centralHub.CheckCreditBalance();
+                var creditBalanceResult = await _centralHub.CheckCreditBalance();
+                if (creditBalanceResult == null || !creditBalanceResult.hasCredits)
+                {
+                    TempData["ErrorCheckCredits"] = creditBalanceResult == null ? "Cannot verify credits — license server unreachable. Please try again later." : "";
+                }
+
+                var companyData = await _centralHub.GetCompanyInformation();
+                if (companyData == null || companyData.CompanyName == "Unknown Company")
+                {
+                    TempData["Error"] = "Cannot verify company data — Company server unreachable. Please try again later.";
+                }
 
 
+                var employee = await _ES.GetEmployeeByEmailAsync(User.Identity.Name);
+                if (employee == null)
+                {
+                    TempData["Error"] = "Employee not found.";
+                    return RedirectToAction("Employees");
+                }
 
 
                 var dashboardData = await _FS.GetComplianceDashboardDataAsync();
-                // var creditBalance = await _CS.GetAvailableCreditsAsync();
+                var creditBalance = await _CS.GetAvailableCreditsAsync();
                 var creditBatches = await _CS.GetCreditBatchesAsync();
                 var licenseStatus = await _LS.GetLicenseStatusMessageAsync();
                 var licenseExpiryDate = await _LS.GetExpiryDateAsync();
                 var templates = (await _TS.GetActiveTemplatesAsync()).ToList();
 
+                
 
                 // Check for low credit balance
                 //var lowCreditWarning = creditBalance < 50;
@@ -517,6 +656,11 @@ namespace Declarify.Controllers
 
                 var viewModel = new DashboardViewModel
                 {
+                    //Company Info
+                    CompanyName = companyData.CompanyName,
+                    AdminName = employee.Full_Name ?? "Administrator",
+                    AdminEmail = employee.Email_Address,
+
                     // Compliance Metrics (FR 4.5.1)
                     TotalEmployees = dashboardData.TotalEmployees,
                     TotalTasks = dashboardData.TotalTasks,
@@ -531,7 +675,7 @@ namespace Declarify.Controllers
                     DepartmentBreakdown = dashboardData.DepartmentBreakdown,
 
                     //// Credit Information
-                    //CreditBalance = creditBalanceResult?.currentBalance ?? 0,
+                    CreditBalance = creditBalanceResult?.currentBalance ?? 0,
                     CreditBatches = creditBatches,
                     ExpiringCredits = expiringCredits,
                     //LowCreditWarning = creditBalanceResult?.currentBalance < 50,
@@ -758,12 +902,37 @@ namespace Declarify.Controllers
             DateTime dueDate,
             List<int> employeeIds)
         {
+
+            if (!employeeIds.Any()) return 0;
+
+            int employeeCount = employeeIds.Count;
+
+            // 1. Check if organization has enough credits (1 credit per employee)
+            CreditCheckResponse? creditCheck = await _centralHub.CheckCreditBalance();
+            if (creditCheck == null)
+            {
+                throw new Exception("Cannot verify credits — license server unreachable.");
+            }
+
+            if (!creditCheck.hasCredits || creditCheck.currentBalance < employeeCount)
+            {
+                throw new Exception("Insufficient credits. Required: " + employeeCount +
+                                    $", Available: {creditCheck.currentBalance}");
+            }
+            var createdTaskIds = new List<int>();
             int successCount = 0;
             var template = await _TS.GetByIdAsync(templateId);
 
             if (template == null)
             {
                 throw new Exception($"Template with ID {templateId} not found");
+            }
+
+            //2. 
+            var consumeResult = await _centralHub.ConsumeCredits(employeeCount,$"DOI Task Creation - Template {templateId}, Due {dueDate:yyyy-MM-dd}, Employees: {string.Join(",", employeeIds)}");
+            if (!consumeResult.Success)
+            {
+                throw new Exception("Failed to create Task for Employees — insufficient credits or server error");
             }
 
             foreach (var employeeId in employeeIds)
@@ -795,11 +964,7 @@ namespace Declarify.Controllers
                     };
 
                     // Save task to database (this should return the created task with TaskId)
-                    var createdTasks = await _FS.BulkCreateTasksAsync(
-    task.TemplateId,
-    task.DueDate,
-    employeeIds
-);
+                    var createdTasks = await _FS.BulkCreateTasksAsync(task.TemplateId, task.DueDate, employeeIds);
 
                     if (createdTasks == null)
                     {
@@ -814,8 +979,9 @@ namespace Declarify.Controllers
                     //_logger.LogInformation(
                     //    $"Created DOI task {createdTasks.TaskId} for employee {employee.Full_Name} ({employee.Email_Address}) with token"
                     //);
-
+                    createdTaskIds.Add(task.TaskId);
                     successCount++;
+
                 }
                 catch (Exception ex)
                 {
@@ -824,6 +990,8 @@ namespace Declarify.Controllers
                         $"Failed to create task for employee {employeeId}"
                     );
                     // Continue processing other employees
+
+                    //Refun for that employee
                 }
             }
 
@@ -1485,6 +1653,36 @@ namespace Declarify.Controllers
                 // Log the incoming Config JSON for debugging
                 _logger.LogInformation("Received Config JSON: {Config}", model.Config);
 
+                //Central Hub API Calls
+                //1. Check if org has enough credits 
+                CreditCheckResponse? creditCheck = null;
+
+                creditCheck = await _centralHub.CheckCreditBalance();
+
+                if (creditCheck == null || !creditCheck.hasCredits || creditCheck.currentBalance <= 0)
+                {
+                    TempData["ErrorCheckCredits"] = creditCheck == null ? "Cannot verify credits — license server unreachable. Please try again later." : "Your organization has no remaining credits. Please contact your administrator to top up.";
+                    return Ok(new
+                    {
+                        success = false,
+                        message = creditCheck == null ? "Cannot verify credits — license server unreachable. Please try again later." : "Your organization has no remaining credits. Please contact your administrator to top up."
+                    });
+                }
+
+                //2. Deduct credits via central hub API
+                var consumeResult = await _centralHub.ConsumeCredits(1, $"Creted Template");
+                if (!consumeResult.Success)
+                {
+                    TempData["ErrorCheckCredits"] = consumeResult.Error ?? "Failed to record submission — insufficient credits or server error";
+
+                    return Ok(new
+                    {
+                        success = false,
+                        message = consumeResult.Error ?? "Failed to record submission — insufficient credits or server error"
+                    });
+                }
+
+
                 if (model == null)
                 {
                     return Json(new { success = false, message = "Invalid request data" });
@@ -1556,6 +1754,9 @@ namespace Declarify.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error creating template");
+
+                //refund credits
+
                 return Json(new { success = false, message = ex.Message });
             }
         }

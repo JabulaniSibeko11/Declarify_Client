@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using Declarify.Models;
 using Declarify.Services.Methods;
 
 namespace Declarify.Services.API
@@ -211,7 +212,20 @@ namespace Declarify.Services.API
 
         }
 
+        // 5. Collect Company Info
+        public async Task<ClientCompanies> GetCompanyInformation()
+        {
+            var result = await GetAsync<ClientCompanies>("api/core/company-info");
 
+            return result ?? new ClientCompanies
+            {
+                CompanyName = "Unknown Company",
+                CompanyRegistration = "N/A",
+                Industry = "N/A",
+                RegisteredDate = DateTime.UtcNow
+            };
+
+        }
 
     }
 

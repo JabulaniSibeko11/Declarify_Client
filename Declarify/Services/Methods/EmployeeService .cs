@@ -395,6 +395,14 @@ namespace Declarify.Services.Methods
                 .FirstOrDefaultAsync(e => e.EmployeeId == employeeId);
         }
 
+        public async Task<Employee?> GetEmployeeByEmailAsync(string employeeEmail)
+        {
+            return await _db.Employees
+                .Include(e => e.Manager)
+                .Include(e => e.Subordinates)
+                .FirstOrDefaultAsync(e => e.Email_Address == employeeEmail);
+        }
+
         // Get all subordinates for a manager (used by Reviewer module)
         public async Task<List<Employee>> GetSubordinatesAsync(int managerId)
         {

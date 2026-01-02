@@ -525,6 +525,34 @@ namespace Declarify.Controllers
                     });
                 }
 
+                //1. Check if org has enough credits 
+                CreditCheckResponse? creditCheck = null;
+
+                creditCheck = await _centralHub.CheckCreditBalance();
+
+                if (creditCheck == null || !creditCheck.hasCredits || creditCheck.currentBalance <= 100)
+                {
+                    TempData["ErrorCheckCredits"] = creditCheck == null ? "Cannot verify credits — license server unreachable. Please try again later." : "Your organization has no remaining credits. Please contact your administrator to top up.";
+                    return Ok(new
+                    {
+                        success = false,
+                        message = creditCheck == null ? "Cannot verify credits — license server unreachable. Please try again later." : "Your organization has no remaining credits. Please contact your administrator to top up."
+                    });
+                }
+
+                //2. Deduct credits via central hub API
+                var consumeResult = await _centralHub.ConsumeCredits(1, $"DOI Submission Review {request.SubmissionId}");
+                if (!consumeResult.Success)
+                {
+                    TempData["ErrorCheckCredits"] = consumeResult.Error ?? "Failed to record review — insufficient credits or server error";
+
+                    return Ok(new
+                    {
+                        success = false,
+                        message = consumeResult.Error ?? "Failed to record review — insufficient credits or server error"
+                    });
+                }
+
                 // Process based on action
                 if (request.Action.ToLower() == "approve")
                 {
