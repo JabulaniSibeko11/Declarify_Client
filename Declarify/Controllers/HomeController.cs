@@ -566,8 +566,7 @@ namespace Declarify.Controllers
             }
             return View(model);
         }
-        [HttpPost]
-        [ValidateAntiForgeryToken]
+      
         public async Task<IActionResult> Logout()
         {
             await _signInManager.SignOutAsync();
@@ -586,13 +585,13 @@ namespace Declarify.Controllers
                 return RedirectToAction("Dashboard", "Employee");
             }
 
-            return user.roleInCompany.ToLower().Trim() switch
+            return user.Role.ToLower().Trim() switch
             {
-                "admin" => RedirectToAction("Index", "Home"), // Admin Dashboard (FR 4.5.1)
+                "Admin" => RedirectToAction("Index", "Home"), // Admin Dashboard (FR 4.5.1)
                 "manager" or "reviewer" => RedirectToAction("Dashboard", "Manager"), // Manager/Reviewer Dashboard (FR 4.5.2)
                 "employee" => RedirectToAction("Dashboard", "Employee"), // Employee Dashboard
                 "executive" or "it deputy director" or "senior management" => RedirectToAction("ExecutiveDashboard", "Executive"), // Executive Dashboard (FR 4.5.3)
-                _ => RedirectToAction("Dashboard", "Employee") // Default fallback
+                _ => RedirectToAction("Index", "Home") // Default fallback
             };
         }
 

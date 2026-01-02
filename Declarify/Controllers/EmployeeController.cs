@@ -149,69 +149,9 @@ namespace Declarify.Controllers
         }
 
 
-        // GET: /employee/tasks
-        [HttpGet("tasks")]
-        public async Task<IActionResult> Tasks()
-        {
-            try
-            {
-                var employeeId = GetCurrentEmployeeId();
-                var tasks = await _doiService.GetEmployeeTasksAsync(employeeId);
+        
 
-                return View(tasks);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error loading employee tasks");
-                return StatusCode(500, "Error loading tasks");
-            }
-        }
-
-
-        // GET: /employee/task/{token}
-        //[AllowAnonymous] // Accessed via unique link
-        //[HttpGet("task")]
-        public async Task<IActionResult> Task1([FromQuery] string token)
-        {
-            try
-            {
-                if (string.IsNullOrEmpty(token))
-                {
-                    return BadRequest("Invalid access link");
-                }
-
-                var task = await _doiService.GetDOITaskByTokenAsync(token);
-                if (task == null)
-                {
-                    TempData["Error"] = "This link has expired or is invalid. Please request a new one from your administrator.";
-                    return View("TokenExpired");
-                }
-
-                var template = await _doiService.GetFormTemplateForTaskAsync(task.TaskId);
-                if (template == null)
-                {
-                    return NotFound("Form template not found");
-                }
-
-                var draft = await _doiService.GetDraftSubmissionAsync(task.TaskId);
-
-                var viewModel = new TaskDetailViewModel
-                {
-                    Task = task,
-                    Template = template,
-                    DraftSubmission = draft,
-                    CanSubmit = task.Status == "Outstanding"
-                };
-
-                return View("CompleteForm", viewModel);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error loading task with token");
-                return StatusCode(500, "Error loading form");
-            }
-        }
-
+       
         [AllowAnonymous]
         [HttpPost("save-draft")]
         public async Task<IActionResult> SaveDraft([FromBody] SaveDraftRequest request)
@@ -240,7 +180,7 @@ namespace Declarify.Controllers
             }
         }
 
-        // POST: /employee/submit
+        
 
         // POST: /employee/submit
         [AllowAnonymous]
@@ -319,6 +259,7 @@ namespace Declarify.Controllers
                 return StatusCode(500, new { success = false, message = "Error submitting form" });
             }
         }
+      
         // GET: /employee/submission-success
         [AllowAnonymous]
         [HttpGet("submission-success")]
@@ -344,6 +285,7 @@ namespace Declarify.Controllers
                 return StatusCode(500, "Error loading profile");
             }
         }
+        
         // GET: /employee/compliance-stats
         [HttpGet("compliance-stats")]
         public async Task<IActionResult> GetComplianceStats()
@@ -375,6 +317,7 @@ namespace Declarify.Controllers
 
             return id;
         }
+        
         [HttpGet]
         public async Task<IActionResult> Review(int? taskId, int? submissionId)
         {
