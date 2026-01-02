@@ -46,14 +46,6 @@
 
     }
 
-    // Request model for review processing
-    public class ProcessReviewRequest
-    {
-        public int SubmissionId { get; set; }
-        public string Action { get; set; } // "approve" or "reject"
-        public string ReviewerNotes { get; set; }
-        public string ReviewerSignature { get; set; } // Base64 signature
-        public string ReviewerName { get; set; }
-        public string ReviewerPosition { get; set; }
-    }
+   
+  
 }

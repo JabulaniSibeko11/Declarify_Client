@@ -427,7 +427,7 @@ namespace Declarify.Controllers
         }
         // POST: Process review (approve or reject)
         [HttpPost]
-        public async Task<IActionResult> ProcessReview([FromBody] ProcessReviewRequest request)
+        public async Task<IActionResult> ProcessReview1([FromBody] ProcessReviewRequest request)
         {
             try
             {
@@ -591,6 +591,226 @@ namespace Declarify.Controllers
             }
         }
 
+
+        [HttpPost]
+        public async Task<IActionResult> ProcessReview([FromBody] ProcessReviewRequest request)
+        {
+            try
+            {
+                if (request == null || string.IsNullOrEmpty(request.Action))
+                {
+                    return BadRequest(new { success = false, message = "Invalid request" });
+                }
+
+                var currentEmployeeId = GetCurrentEmployeeId();
+
+                var submission = await _db.DOIFormSubmissions
+                    .Include(s => s.Task)
+                        .ThenInclude(t => t.Employee)
+                    .FirstOrDefaultAsync(s => s.SubmissionId == request.SubmissionId);
+
+                if (submission == null)
+                {
+                    return NotFound(new { success = false, message = "Submission not found" });
+                }
+
+                // Verify authorization
+                if (submission.AssignedManagerId != currentEmployeeId)
+                {
+                    _logger.LogWarning(
+                        "Unauthorized review attempt: Employee {CurrentId} tried to process submission {SubmissionId}",
+                        currentEmployeeId,
+                        request.SubmissionId);
+                    return Forbid();
+                }
+
+                // Check if already reviewed (except for verification requests)
+                if (request.Action.ToLower() != "verification" &&
+                    (submission.Status == "Reviewed" || submission.Status == "Approved"))
+                {
+                    return Ok(new
+                    {
+                        success = false,
+                        message = "This submission has already been reviewed."
+                    });
+                }
+
+                // Process based on action
+                if (request.Action.ToLower() == "approve")
+                {
+                    //1. Check if org has enough credits 
+                    CreditCheckResponse? creditCheck = await _centralHub.CheckCreditBalance();
+
+                    if (creditCheck == null || !creditCheck.hasCredits || creditCheck.currentBalance <= 0)
+                    {
+                        return Ok(new
+                        {
+                            success = false,
+                            message = creditCheck == null
+                                ? "Cannot verify credits — license server unreachable. Please try again later."
+                                : "Your organization has no remaining credits. Please contact your administrator to top up."
+                        });
+                    }
+
+                    //2. Deduct credits via central hub API
+                    var consumeResult = await _centralHub.ConsumeCredits(1, $"DOI Submission Review Approval {request.SubmissionId}");
+                    if (!consumeResult.Success)
+                    {
+                        return Ok(new
+                        {
+                            success = false,
+                            message = consumeResult.Error ?? "Failed to record review — insufficient credits or server error"
+                        });
+                    }
+
+                    // Update submission
+                    submission.Status = "Reviewed"; // or "Approved" based on your workflow
+                    submission.ReviewerNotes = request.ReviewerNotes ?? string.Empty;
+                    submission.ReviewedDate = DateTime.UtcNow;
+
+                    // Update task status
+                    submission.Task.Status = "Reviewed";
+
+                    _db.DOIFormSubmissions.Update(submission);
+                    await _db.SaveChangesAsync();
+
+                    _logger.LogInformation(
+                        "Submission {SubmissionId} approved by Manager {ManagerId}",
+                        request.SubmissionId,
+                        currentEmployeeId);
+
+                    // Optional: Send notification email to employee
+                    // await _emailService.SendApprovalNotificationAsync(submission.Task.Employee.Email_Address);
+
+                    return Ok(new
+                    {
+                        success = true,
+                        message = "Declaration approved successfully.",
+                        redirectUrl = Url.Action("Dashboard", "Employee")
+                    });
+                }
+                else if (request.Action.ToLower() == "reject")
+                {
+                    // Validate notes are provided for rejection
+                    if (string.IsNullOrWhiteSpace(request.ReviewerNotes))
+                    {
+                        return BadRequest(new
+                        {
+                            success = false,
+                            message = "Notes are required when requesting revision."
+                        });
+                    }
+
+                    // Update submission - send back for revision
+                    submission.Status = "Revision Required"; // or "Rejected"
+                    submission.ReviewerNotes = request.ReviewerNotes;
+                    submission.ReviewedDate = DateTime.UtcNow;
+
+                    // Update task status - reopen for employee
+                    submission.Task.Status = "Outstanding";
+
+                    // Regenerate access token for employee to resubmit
+                    submission.Task.AccessToken = Convert.ToBase64String(
+                        System.Security.Cryptography.RandomNumberGenerator.GetBytes(32));
+                    submission.Task.TokenExpiry = DateTime.UtcNow.AddDays(7);
+
+                    _db.DOIFormSubmissions.Update(submission);
+                    await _db.SaveChangesAsync();
+
+                    _logger.LogInformation(
+                        "Submission {SubmissionId} sent back for revision by Manager {ManagerId}",
+                        request.SubmissionId,
+                        currentEmployeeId);
+
+                    // Optional: Send notification email to employee with revision notes
+                    // await _emailService.SendRevisionRequestAsync(
+                    //     submission.Task.Employee.Email_Address, 
+                    //     request.ReviewerNotes,
+                    //     submission.Task.AccessToken);
+
+                    return Ok(new
+                    {
+                        success = true,
+                        message = "Revision request sent to employee.",
+                        redirectUrl = Url.Action("Dashboard", "Employee")
+                    });
+                }
+                else if (request.Action.ToLower() == "verification")
+                {
+                    // Validate notes are provided for verification
+                    if (string.IsNullOrWhiteSpace(request.ReviewerNotes))
+                    {
+                        return BadRequest(new
+                        {
+                            success = false,
+                            message = "Please provide a reason for the verification request."
+                        });
+                    }
+
+                    // Create verification result record
+                    var verificationResult = new VerificationResult
+                    {
+                        SubmissionId = request.SubmissionId,
+                        VerificationType = request.VerificationType ?? "Manual Review Request",
+                        Success = false, // Pending verification
+                        Message = request.ReviewerNotes,
+                        ResultData = JsonSerializer.Serialize(new
+                        {
+                            RequestedBy = request.ReviewerName,
+                            RequestedByPosition = request.ReviewerPosition,
+                            RequestDate = DateTime.UtcNow,
+                            Reason = request.ReviewerNotes,
+                            Status = "Pending Admin Review"
+                        })
+                    };
+
+                    _db.VerificationResults.Add(verificationResult);
+
+                    // Update submission status to indicate verification is pending
+                    submission.Status = "Pending Verification";
+                    submission.ReviewerNotes = $"VERIFICATION REQUESTED: {request.ReviewerNotes}";
+
+                    _db.DOIFormSubmissions.Update(submission);
+                    await _db.SaveChangesAsync();
+
+                    _logger.LogInformation(
+                        "Verification requested for Submission {SubmissionId} by Manager {ManagerId}. Reason: {Reason}",
+                        request.SubmissionId,
+                        currentEmployeeId,
+                        request.ReviewerNotes);
+
+                    // TODO: Send notification to admin about verification request
+                    // await _emailService.SendVerificationRequestToAdminAsync(
+                    //     submission,
+                    //     request.ReviewerNotes,
+                    //     request.ReviewerName);
+
+                    return Ok(new
+                    {
+                        success = true,
+                        message = "Verification request sent to administrator. They will be notified to conduct external verification checks.",
+                        redirectUrl = Url.Action("Dashboard", "Employee")
+                    });
+                }
+                else
+                {
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = "Invalid action specified."
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing review for submission {SubmissionId}", request?.SubmissionId);
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "An error occurred while processing your review."
+                });
+            }
+        }
         // STEP 1: Parse template configuration with submitted form data
         // This method reconstructs the form structure and populates it with employee responses
         private async Task<List<FormSectionViewModel>> ParseTemplateWithFormData(Template template, string formDataJson)
@@ -790,15 +1010,8 @@ namespace Declarify.Controllers
     };
         }
 
-        // Request model for processing reviews
-        public class ProcessReviewRequest
-        {
-            public int SubmissionId { get; set; }
-            public string Action { get; set; } = string.Empty; // "approve" or "reject"
-            public string? ReviewerNotes { get; set; }
-            public string ReviewerName { get; set; } = string.Empty;
-            public string ReviewerPosition { get; set; } = string.Empty;
-        }
+       
+      
 
     }
 }

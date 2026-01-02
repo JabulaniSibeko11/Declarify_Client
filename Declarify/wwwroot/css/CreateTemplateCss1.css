@@ -574,9 +574,9 @@ main {
     color: white;
     box-shadow: 0 10px 40px rgba(8, 27, 56, 0.2);
     position: relative;
-    overflow: hidden;
+    overflow-y: auto;
+    max-height: calc(100vh - 400px);
 }
-
     .preview-container-full::before {
         content: '';
         position: absolute;
