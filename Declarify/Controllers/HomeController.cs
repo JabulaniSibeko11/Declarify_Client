@@ -488,14 +488,14 @@ namespace Declarify.Controllers
                     return View("LandingPage");
                 }
 
-                if (!User.Identity.IsAuthenticated)
-                {
-                    // Redirect to login page (adjust the route if needed)
-                    return RedirectToAction("Login", "Home");
-                }
+                //if (!User.Identity.IsAuthenticated)
+                //{
+                //    // Redirect to login page (adjust the route if needed)
+                //    return RedirectToAction("Login", "Home");
+                //}
 
                 //API Calls
-                var creditBalanceResult = await _centralHub.CheckCreditBalance();
+                //var creditBalanceResult = await _centralHub.CheckCreditBalance();
 
 
 
@@ -530,12 +530,12 @@ namespace Declarify.Controllers
                     // Department Breakdown (FR 4.5.3)
                     DepartmentBreakdown = dashboardData.DepartmentBreakdown,
 
-                    // Credit Information
-                    CreditBalance = creditBalanceResult?.currentBalance ?? 0,
+                    //// Credit Information
+                    //CreditBalance = creditBalanceResult?.currentBalance ?? 0,
                     CreditBatches = creditBatches,
                     ExpiringCredits = expiringCredits,
-                    LowCreditWarning = creditBalanceResult?.currentBalance < 50,
-                    CriticalCreditWarning = creditBalanceResult?.currentBalance < 20,
+                    //LowCreditWarning = creditBalanceResult?.currentBalance < 50,
+                    //CriticalCreditWarning = creditBalanceResult?.currentBalance < 20,
 
                     // License Information
                     LicenseStatus = licenseStatus,
