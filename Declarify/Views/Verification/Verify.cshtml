@@ -1,0 +1,366 @@
+﻿@model Declarify.Models.ViewModels.VerificationDetailViewModel
+
+@{
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Submission - Declarify</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+   
+    <link href="~/css/verifycss.css" rel="stylesheet" />
+</head>
+<body>
+    <div class="loading" id="loadingOverlay">
+        <div class="spinner"></div>
+    </div>
+
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">
+                Declar<span class="logo-accent">ify</span>
+            </div>
+            <a href="@Url.Action("Index", "Verification")" class="back-link">
+                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path d="M15 19l-7-7 7-7" />
+                </svg>
+                Back to List
+            </a>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="employee-banner">
+            <div class="employee-header">
+                <div class="employee-avatar">
+                    @Model.EmployeeName.Substring(0, Math.Min(2, Model.EmployeeName.Length)).ToUpper()
+                </div>
+                <div class="employee-details">
+                    <h2>@Model.EmployeeName</h2>
+                    <div class="employee-meta">
+                        <div class="meta-item">
+                            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                            </svg>
+                            @Model.EmployeeId
+                        </div>
+                        <div class="meta-item">
+                            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                            </svg>
+                            @Model.Position
+                        </div>
+                        <div class="meta-item">
+                            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                            </svg>
+                            @Model.Department
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="info-grid">
+                <div class="info-item">
+                    <div class="info-label">Email</div>
+                    <div class="info-value">@Model.EmployeeEmail</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Submitted</div>
+                    <div class="info-value">@Model.SubmittedDate.ToString("MMM dd, yyyy")</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Status</div>
+                    <div class="info-value">
+                        <span class="badge badge-warning">@Model.Status</span>
+                    </div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Verifications</div>
+                    <div class="info-value">@Model.TotalVerificationCount completed</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid-layout">
+            <div>
+                <!-- Suggested Entities -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Suggested Entities for Verification</h3>
+                        <p class="card-subtitle">Extracted from declaration form data</p>
+                    </div>
+                    <div class="card-body">
+                        @if (Model.HasSuggestedEntities)
+                        {
+                            <div class="entity-list">
+                                @foreach (var entity in Model.SuggestedEntities)
+                                {
+                                    <div class="entity-item">
+                                        <span class="entity-name">@entity</span>
+                                        <div class="entity-actions">
+                                            <button class="btn btn-primary btn-sm" onclick="runCipcCheck('@entity')"
+                                                    @(!Model.CanRunCipcCheck ? "disabled" : "")>
+                                                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                    <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                </svg>
+                                                CIPC (5 credits)
+                                            </button>
+                                            <button class="btn btn-secondary btn-sm" onclick="runCreditCheck('@entity')"
+                                                    @(!Model.CanRunCreditCheck ? "disabled" : "")>
+                                                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                    <path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                                                </svg>
+                                                Credit (10 credits)
+                                            </button>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="empty-state">
+                                <div class="empty-icon">🔍</div>
+                                <p>No entities found in declaration data</p>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <!-- Verification History -->
+                <div class="card" style="margin-top: 2rem;">
+                    <div class="card-header">
+                        <h3 class="card-title">Verification History</h3>
+                        <p class="card-subtitle">@Model.TotalVerificationCount checks completed</p>
+                    </div>
+                    <div class="card-body">
+                        @if (Model.HasExistingVerifications)
+                        {
+                            <div class="verification-history">
+                                @foreach (var verification in Model.ExistingVerifications)
+                                {
+                                    <div class="verification-card">
+                                        <div class="verification-header">
+                                            <div>
+                                                <div class="verification-type">@verification.VerificationType Check</div>
+                                                <div class="verification-entity">@verification.EntityName</div>
+                                            </div>
+                                            <span class="badge badge-@verification.StatusBadgeClass">@verification.Status</span>
+                                        </div>
+                                        <div class="verification-date">
+                                            Completed: @verification.CreatedAt.ToString("MMM dd, yyyy HH:mm")
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="empty-state">
+                                <div class="empty-icon">📋</div>
+                                <p>No verification checks have been run yet</p>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <!-- Reviewer Notes -->
+                <div class="card" style="margin-top: 2rem;">
+                    <div class="card-header">
+                        <h3 class="card-title">Reviewer Notes</h3>
+                    </div>
+                    <div class="card-body">
+                        <form id="notesForm">
+                            <textarea class="textarea" id="reviewerNotes" placeholder="Add notes about this submission...">@Model.ReviewerNotes</textarea>
+                            <button type="submit" class="btn btn-primary" style="margin-top: 1rem;">
+                                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                                </svg>
+                                Save Notes
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <!-- Credit Information -->
+                <div class="credit-info">
+                    <div class="credit-balance">@Model.CreditBalance</div>
+                    <div class="credit-label">Credits Available</div>
+                    <div class="cost-breakdown">
+                        <div class="cost-item">
+                            <span>CIPC Check</span>
+                            <strong>@Model.CipcCheckCost credits</strong>
+                        </div>
+                        <div class="cost-item">
+                            <span>Credit Check</span>
+                            <strong>@Model.CreditCheckCost credits</strong>
+                        </div>
+                    </div>
+                </div>
+
+                @if (!Model.CanRunCipcCheck || !Model.CanRunCreditCheck)
+                {
+                    <div class="alert alert-warning">
+                        <span>⚠️</span>
+                        <div>
+                            <strong>Insufficient Credits</strong>
+                            <p style="margin-top: 0.25rem; font-size: 0.875rem;">
+                                @if (!Model.CanRunCreditCheck)
+                                {
+                                    <span>You need at least 10 credits for credit checks.</span>
+                                }
+                                else
+                                {
+                                    <span>You need at least 5 credits for CIPC checks.</span>
+                                }
+                            </p>
+                        </div>
+                    </div>
+                }
+
+                <div class="alert alert-info">
+                    <span>ℹ️</span>
+                    <div>
+                        <strong>Verification Guidelines</strong>
+                        <p style="margin-top: 0.25rem; font-size: 0.875rem;">
+                            Run CIPC checks to verify directorship status and credit checks to assess creditworthiness.
+                            All results are stored immutably and attached to the submission.
+                        </p>
+                    </div>
+                </div>
+
+                <a href="@Url.Action("Purchase", "Credits")" class="btn btn-primary" style="width: 100%;">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path d="M12 4v16m8-8H4" />
+                    </svg>
+                    Purchase More Credits
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const submissionId = @Model.SubmissionId;
+        const loadingOverlay = document.getElementById('loadingOverlay');
+
+        function showLoading() {
+            loadingOverlay.classList.add('active');
+        }
+
+        function hideLoading() {
+            loadingOverlay.classList.remove('active');
+        }
+
+        async function runCipcCheck(entityName) {
+            if (!confirm(`Run CIPC check for "${entityName}"? This will consume 5 credits.`)) {
+                return;
+            }
+
+            showLoading();
+
+            try {
+                const formData = new FormData();
+                formData.append('submissionId', submissionId);
+                formData.append('entityName', entityName);
+
+                const response = await fetch('@Url.Action("RunCipcCheck", "Verification")', {
+                    method: 'POST',
+                    headers: {
+                        'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
+                    },
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert(result.message);
+                    location.reload();
+                } else {
+                    alert('Error: ' + result.message);
+                }
+            } catch (error) {
+                alert('An error occurred: ' + error.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function runCreditCheck(entityName) {
+            if (!confirm(`Run credit check for "${entityName}"? This will consume 10 credits.`)) {
+                return;
+            }
+
+            showLoading();
+
+            try {
+                const formData = new FormData();
+                formData.append('submissionId', submissionId);
+                formData.append('entityName', entityName);
+
+                const response = await fetch('@Url.Action("RunCreditCheck", "Verification")', {
+                    method: 'POST',
+                    headers: {
+                        'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
+                    },
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert(result.message);
+                    location.reload();
+                } else {
+                    alert('Error: ' + result.message);
+                }
+            } catch (error) {
+                alert('An error occurred: ' + error.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        document.getElementById('notesForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            showLoading();
+
+            try {
+                const notes = document.getElementById('reviewerNotes').value;
+                const formData = new FormData();
+                formData.append('submissionId', submissionId);
+                formData.append('notes', notes);
+
+                const response = await fetch('@Url.Action("AddNotes", "Verification")', {
+                    method: 'POST',
+                    headers: {
+                        'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
+                    },
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert('Notes saved successfully!');
+                } else {
+                    alert('Error: ' + result.message);
+                }
+            } catch (error) {
+                alert('An error occurred: ' + error.message);
+            } finally {
+                hideLoading();
+            }
+        });
+    </script>
+
+    @Html.AntiForgeryToken()
+</body>
+</html>

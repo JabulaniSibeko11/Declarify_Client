@@ -1,0 +1,169 @@
+﻿@model Declarify.Models.ViewModels.VerificationIndexViewModel
+
+@{
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verification Dashboard - Declarify</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="~/css/verificationindexcss.css" rel="stylesheet" />
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">
+                Declar<span class="logo-accent">ify</span>
+            </div>
+            <nav>
+                <a href="@Url.Action("Dashboard", "Home")" class="nav-link">Dashboard</a>
+                <a href="@Url.Action("Index", "Verification")" class="nav-link">Verification</a>
+                <a href="@Url.Action("Purchase", "Credits")" class="nav-link">Credits</a>
+            </nav>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="page-header">
+            <h1 class="page-title">Verification Dashboard</h1>
+            <p class="page-subtitle">Run CIPC and credit checks on submitted declarations</p>
+        </div>
+
+        @if (Model.CriticalCreditWarning)
+        {
+            <div class="alert alert-danger">
+                <div class="alert-icon">🚨</div>
+                <div>
+                    <h3>Critical: Credit Balance Low</h3>
+                    <p>You have <strong>@Model.CreditBalance credits</strong> remaining. Purchase credits immediately to continue verifications.</p>
+                </div>
+            </div>
+        }
+        else if (Model.LowCreditWarning)
+        {
+            <div class="alert alert-warning">
+                <div class="alert-icon">⚠️</div>
+                <div>
+                    <h3>Low Credit Balance</h3>
+                    <p>You have <strong>@Model.CreditBalance credits</strong> remaining. Consider purchasing more credits soon.</p>
+                </div>
+            </div>
+        }
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Total Pending</div>
+                <div class="stat-value">@Model.TotalPendingCount</div>
+            </div>
+
+            <div class="stat-card success">
+                <div class="stat-label">Verified</div>
+                <div class="stat-value">@Model.VerifiedCount</div>
+            </div>
+
+            <div class="stat-card warning">
+                <div class="stat-label">Unverified</div>
+                <div class="stat-value">@Model.UnverifiedCount</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-label">Credit Balance</div>
+                <div class="stat-value">@Model.CreditBalance</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">Pending Submissions</h2>
+                <a href="@Url.Action("Purchase", "Credits")" class="btn btn-primary btn-sm">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path d="M12 4v16m8-8H4" />
+                    </svg>
+                    Purchase Credits
+                </a>
+            </div>
+
+            @if (Model.PendingSubmissions.Any())
+            {
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Employee</th>
+                                <th>Department</th>
+                                <th>Submitted</th>
+                                <th>Status</th>
+                                <th>Verifications</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var submission in Model.PendingSubmissions)
+                            {
+                                <tr>
+                                    <td>
+                                        <div class="employee-info">
+                                            <span class="employee-name">@submission.EmployeeName</span>
+                                            <span class="employee-id">@submission.EmployeeId</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span>@submission.Department</span>
+                                        <br />
+                                        <span style="font-size: 0.875rem; color: var(--color-text-muted);">@submission.Position</span>
+                                    </td>
+                                    <td>
+                                        <span>@submission.SubmittedDate.ToString("MMM dd, yyyy")</span>
+                                        <br />
+                                        <span class="badge @(submission.IsUrgent ? "badge-danger" : "badge-info")">
+                                            @submission.DaysSinceSubmission days ago
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge badge-warning">@submission.Status</span>
+                                    </td>
+                                    <td>
+                                        <div class="verification-status">
+                                            @if (submission.HasVerifications)
+                                            {
+                                                <span class="verification-icon icon-verified">✓</span>
+                                                <span>@submission.VerificationCount checks</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="verification-icon icon-pending">!</span>
+                                                <span>No checks</span>
+                                            }
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="actions">
+                                            <a href="@Url.Action("Verify", "Verification", new { id = submission.SubmissionId })" class="btn btn-primary btn-sm">
+                                                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                    <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                </svg>
+                                                Verify
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <div class="empty-state">
+                    <div class="empty-icon">✓</div>
+                    <h3 class="empty-title">All Caught Up!</h3>
+                    <p class="empty-text">There are no pending submissions requiring verification at this time.</p>
+                </div>
+            }
+        </div>
+    </div>
+</body>
+</html>

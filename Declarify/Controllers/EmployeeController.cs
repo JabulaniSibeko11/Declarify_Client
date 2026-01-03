@@ -317,9 +317,118 @@ namespace Declarify.Controllers
 
             return id;
         }
-        
+
         [HttpGet]
         public async Task<IActionResult> Review(int? taskId, int? submissionId)
+        {
+            try
+            {
+                // Get the current user's employee ID (adjust based on your auth system)
+                var currentEmployeeId = GetCurrentEmployeeId();
+
+                FormSubmission submission = null;
+
+                // If taskId is provided, find the submission by taskId
+                if (taskId.HasValue)
+                {
+                    submission = await _db.DOIFormSubmissions
+                        .Include(s => s.Task)
+                            .ThenInclude(t => t.Employee)
+                        .Include(s => s.Task)
+                            .ThenInclude(t => t.Template)
+                        .FirstOrDefaultAsync(s => s.FormTaskId == taskId.Value);
+                }
+                // Otherwise, look up by submissionId
+                else if (submissionId.HasValue)
+                {
+                    submission = await _db.DOIFormSubmissions
+                        .Include(s => s.Task)
+                            .ThenInclude(t => t.Employee)
+                        .Include(s => s.Task)
+                            .ThenInclude(t => t.Template)
+                        .FirstOrDefaultAsync(s => s.SubmissionId == submissionId.Value);
+                }
+                else
+                {
+                    TempData["Error"] = "Invalid request. Task ID or Submission ID is required.";
+                    return RedirectToAction("Dashboard");
+                }
+
+                if (submission == null)
+                {
+                    TempData["Error"] = "Submission not found. The employee may not have submitted this declaration yet.";
+                    return RedirectToAction("Dashboard");
+                }
+
+                // Verify the current user is the assigned manager
+                if (submission.AssignedManagerId != currentEmployeeId)
+                {
+                    TempData["Error"] = "You are not authorized to review this submission.";
+                    _logger.LogWarning(
+                        "Unauthorized review attempt: Employee {CurrentId} tried to access submission {SubmissionId} assigned to {AssignedManagerId}",
+                        currentEmployeeId,
+                        submission.SubmissionId,
+                        submission.AssignedManagerId);
+                    return RedirectToAction("Dashboard");
+                }
+
+                // Check if already reviewed
+                if (submission.Status == "Reviewed" || submission.Status == "Approved")
+                {
+                    TempData["Warning"] = "This submission has already been reviewed.";
+                    return RedirectToAction("Dashboard");
+                }
+
+                // Check if submission is in correct status for review
+                if (submission.Status != "Submitted" && submission.Status != "Pending")
+                {
+                    TempData["Warning"] = $"This submission cannot be reviewed in its current status: {submission.Status}";
+                    return RedirectToAction("Dashboard");
+                }
+
+                // Get the reviewer (current user) information INCLUDING their signature
+                var reviewer = await _db.Employees
+                    .FirstOrDefaultAsync(e => e.EmployeeId == currentEmployeeId);
+
+                // Create view model - pass RAW JSON strings just like CompleteForm does
+                var viewModel = new ReviewSubmissionViewModel
+                {
+                    SubmissionId = submission.SubmissionId,
+                    EmployeeName = submission.Task.Employee.Full_Name,
+                    Position = submission.Task.Employee.Position,
+                    Department = submission.Task.Employee.Department,
+                    SubmittedDate = submission.Submitted_Date,
+                    SubmissionStatus = submission.Status,
+                    ReviewerName = reviewer?.Full_Name ?? "Unknown",
+                    ReviewerPosition = reviewer?.Position ?? "Manager",
+                    ReviewerSignature = reviewer?.Signature_Picture ?? "", // ADDED: Auto-load reviewer signature
+
+                    // Pass raw JSON - let the view parse it like CompleteForm does
+                    TemplateConfig = submission.Task.Template.TemplateConfig ?? "{}",
+                    FormData = submission.FormData ?? "{}",
+
+                    DigitalAttestation = submission.DigitalAttestation
+                };
+
+                _logger.LogInformation(
+                    "Manager {ManagerId} accessed review page for submission {SubmissionId} (Task {TaskId})",
+                    currentEmployeeId,
+                    submission.SubmissionId,
+                    submission.FormTaskId);
+
+                return View(viewModel);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error loading review page for taskId {TaskId}, submissionId {SubmissionId}",
+                    taskId, submissionId);
+                TempData["Error"] = "An error occurred while loading the submission.";
+                return RedirectToAction("Dashboard");
+            }
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> Review1(int? taskId, int? submissionId)
         {
             try
             {
@@ -591,7 +700,6 @@ namespace Declarify.Controllers
             }
         }
 
-
         [HttpPost]
         public async Task<IActionResult> ProcessReview([FromBody] ProcessReviewRequest request)
         {
@@ -663,10 +771,25 @@ namespace Declarify.Controllers
                         });
                     }
 
-                    // Update submission
+                    // Update submission with reviewer digital signature (FR 4.5.4)
                     submission.Status = "Reviewed"; // or "Approved" based on your workflow
                     submission.ReviewerNotes = request.ReviewerNotes ?? string.Empty;
                     submission.ReviewedDate = DateTime.UtcNow;
+
+                    // Store reviewer digital attestation with signature
+                    var reviewerAttestation = new
+                    {
+                        ReviewerName = request.ReviewerName,
+                        ReviewerPosition = request.ReviewerPosition,
+                        ReviewDate = DateTime.UtcNow,
+                        Decision = "Approved",
+                        Notes = request.ReviewerNotes,
+                        Signature = request.ReviewerSignature // Base64 image
+                    };
+
+                    // You may want to add a ReviewerAttestation column or append to existing field
+                    // For now, we'll store it in ReviewerNotes as JSON
+                    submission.ReviewerNotes = JsonSerializer.Serialize(reviewerAttestation);
 
                     // Update task status
                     submission.Task.Status = "Reviewed";
@@ -675,7 +798,7 @@ namespace Declarify.Controllers
                     await _db.SaveChangesAsync();
 
                     _logger.LogInformation(
-                        "Submission {SubmissionId} approved by Manager {ManagerId}",
+                        "Submission {SubmissionId} approved by Manager {ManagerId} with digital signature",
                         request.SubmissionId,
                         currentEmployeeId);
 
@@ -685,7 +808,7 @@ namespace Declarify.Controllers
                     return Ok(new
                     {
                         success = true,
-                        message = "Declaration approved successfully.",
+                        message = "Declaration approved successfully with digital signature.",
                         redirectUrl = Url.Action("Dashboard", "Employee")
                     });
                 }
@@ -701,10 +824,22 @@ namespace Declarify.Controllers
                         });
                     }
 
-                    // Update submission - send back for revision
+                    // Update submission - send back for revision with reviewer digital signature
                     submission.Status = "Revision Required"; // or "Rejected"
-                    submission.ReviewerNotes = request.ReviewerNotes;
                     submission.ReviewedDate = DateTime.UtcNow;
+
+                    // Store reviewer digital attestation with signature (FR 4.5.4)
+                    var reviewerAttestation = new
+                    {
+                        ReviewerName = request.ReviewerName,
+                        ReviewerPosition = request.ReviewerPosition,
+                        ReviewDate = DateTime.UtcNow,
+                        Decision = "Revision Required",
+                        Notes = request.ReviewerNotes,
+                        Signature = request.ReviewerSignature // Base64 image
+                    };
+
+                    submission.ReviewerNotes = JsonSerializer.Serialize(reviewerAttestation);
 
                     // Update task status - reopen for employee
                     submission.Task.Status = "Outstanding";
@@ -718,7 +853,7 @@ namespace Declarify.Controllers
                     await _db.SaveChangesAsync();
 
                     _logger.LogInformation(
-                        "Submission {SubmissionId} sent back for revision by Manager {ManagerId}",
+                        "Submission {SubmissionId} sent back for revision by Manager {ManagerId} with digital signature",
                         request.SubmissionId,
                         currentEmployeeId);
 
@@ -731,7 +866,7 @@ namespace Declarify.Controllers
                     return Ok(new
                     {
                         success = true,
-                        message = "Revision request sent to employee.",
+                        message = "Revision request sent to employee with digital signature.",
                         redirectUrl = Url.Action("Dashboard", "Employee")
                     });
                 }
@@ -747,7 +882,7 @@ namespace Declarify.Controllers
                         });
                     }
 
-                    // Create verification result record
+                    // Create verification result record with reviewer attestation
                     var verificationResult = new VerificationResult
                     {
                         SubmissionId = request.SubmissionId,
@@ -760,7 +895,8 @@ namespace Declarify.Controllers
                             RequestedByPosition = request.ReviewerPosition,
                             RequestDate = DateTime.UtcNow,
                             Reason = request.ReviewerNotes,
-                            Status = "Pending Admin Review"
+                            Status = "Pending Admin Review",
+                            ReviewerSignature = request.ReviewerSignature // Store digital signature (FR 4.5.4)
                         })
                     };
 
@@ -768,13 +904,25 @@ namespace Declarify.Controllers
 
                     // Update submission status to indicate verification is pending
                     submission.Status = "Pending Verification";
-                    submission.ReviewerNotes = $"VERIFICATION REQUESTED: {request.ReviewerNotes}";
+
+                    // Store reviewer attestation in ReviewerNotes
+                    var reviewerAttestation = new
+                    {
+                        ReviewerName = request.ReviewerName,
+                        ReviewerPosition = request.ReviewerPosition,
+                        ReviewDate = DateTime.UtcNow,
+                        Decision = "Verification Requested",
+                        Notes = request.ReviewerNotes,
+                        Signature = request.ReviewerSignature
+                    };
+
+                    submission.ReviewerNotes = JsonSerializer.Serialize(reviewerAttestation);
 
                     _db.DOIFormSubmissions.Update(submission);
                     await _db.SaveChangesAsync();
 
                     _logger.LogInformation(
-                        "Verification requested for Submission {SubmissionId} by Manager {ManagerId}. Reason: {Reason}",
+                        "Verification requested for Submission {SubmissionId} by Manager {ManagerId} with digital signature. Reason: {Reason}",
                         request.SubmissionId,
                         currentEmployeeId,
                         request.ReviewerNotes);
@@ -788,7 +936,7 @@ namespace Declarify.Controllers
                     return Ok(new
                     {
                         success = true,
-                        message = "Verification request sent to administrator. They will be notified to conduct external verification checks.",
+                        message = "Verification request sent to administrator with your digital signature. They will be notified to conduct external verification checks.",
                         redirectUrl = Url.Action("Dashboard", "Employee")
                     });
                 }

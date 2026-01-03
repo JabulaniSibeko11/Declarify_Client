@@ -9,5 +9,7 @@
         public string ReviewerPosition { get; set; } = string.Empty;
 
         public string? VerificationType { get; set; }
+        public string? ReviewerSignature { get; set; } // Base64 signature image (FR 4.5.4)
+
     }
 }

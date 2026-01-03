@@ -14,6 +14,9 @@
         public string ReviewerPosition { get; set; }
         public string? DigitalAttestation { get; set; } // JSON containing employee's signature
 
+        public string ReviewerSignature { get; set; } = string.Empty; // ADDED: Base64 signature from Employee.Signature
+
+
 
         // Form Content
         public List<FormSectionViewModel> FormSections { get; set; }

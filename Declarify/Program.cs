@@ -74,6 +74,9 @@ builder.Services.AddScoped<IReviewHelperService, ReviewHelperService>();
 builder.Services.AddHttpClient<CentralHubApiService>();
 builder.Services.AddScoped<CentralHubApiService>();
 
+//builder.Services.AddHttpClient<ICentralHubService, CentralHubApiService>();
+
+
 // MVC / Razor
 builder.Services.AddControllersWithViews();
 builder.Services.AddRazorPages();
