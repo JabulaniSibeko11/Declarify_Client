@@ -10,8 +10,80 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Verify Submission - Declarify</title>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-   
+
     <link href="~/css/verifycss.css" rel="stylesheet" />
+    <style>
+        .verification-checks-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 1rem;
+        }
+
+        .check-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem 1rem;
+            background: linear-gradient(135deg, var(--color-bg-canvas) 0%, #FFFFFF 100%);
+            border: 2px solid #E5E7EB;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+            min-height: 140px;
+        }
+
+            .check-btn:hover:not(:disabled) {
+                border-color: var(--color-accent);
+                background: linear-gradient(135deg, #FFFFFF 0%, var(--color-bg-canvas) 100%);
+                transform: translateY(-4px);
+                box-shadow: 0 8px 20px rgba(0, 194, 203, 0.15);
+            }
+
+            .check-btn:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+            }
+
+        .check-icon {
+            width: 48px;
+            height: 48px;
+            margin-bottom: 0.75rem;
+            background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-glow) 100%);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+
+        .check-btn:disabled .check-icon {
+            background: #9CA3AF;
+        }
+
+        .check-name {
+            font-weight: 600;
+            color: var(--color-primary);
+            margin-bottom: 0.25rem;
+            font-size: 0.875rem;
+        }
+
+        .check-cost {
+            font-size: 0.75rem;
+            color: var(--color-text-muted);
+            font-weight: 500;
+        }
+
+        .check-cost-value {
+            color: var(--color-accent);
+            font-weight: 600;
+        }
+
+        .check-btn:disabled .check-cost-value {
+            color: #9CA3AF;
+        }
+    </style>
 </head>
 <body>
     <div class="loading" id="loadingOverlay">
@@ -87,8 +159,109 @@
 
         <div class="grid-layout">
             <div>
-                <!-- Suggested Entities -->
+                <!-- Available Verification Checks -->
                 <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Available Verification Checks</h3>
+                        <p class="card-subtitle">Perform compliance and background verification checks</p>
+                    </div>
+                    <div class="card-body">
+                        <div class="verification-checks-grid">
+                            <!-- CIPC Directorship Check -->
+                            <button class="check-btn"
+                                    onclick="showEntityPrompt('cipc')"
+                                    @(!Model.CanRunCipcCheck ? "disabled" : "")>
+                                <div class="check-icon">
+                                    <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                        <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                </div>
+                                <div class="check-name">CIPC Directorship</div>
+                                <div class="check-cost">
+                                    <span class="check-cost-value">5 credits</span>
+                                </div>
+                            </button>
+
+                            <!-- Credit Worthiness Check -->
+                            <button class="check-btn"
+                                    onclick="showEntityPrompt('credit')"
+                                    @(!Model.CanRunCreditCheck ? "disabled" : "")>
+                                <div class="check-icon">
+                                    <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                        <path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                                    </svg>
+                                </div>
+                                <div class="check-name">Credit Worthiness</div>
+                                <div class="check-cost">
+                                    <span class="check-cost-value">10 credits</span>
+                                </div>
+                            </button>
+
+                            <!-- Criminal Record Check -->
+                            <button class="check-btn"
+                                    onclick="showEntityPrompt('criminal')"
+                                    @(Model.CreditBalance < 8 ? "disabled" : "")>
+                                <div class="check-icon">
+                                    <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                        <path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                    </svg>
+                                </div>
+                                <div class="check-name">Criminal Record</div>
+                                <div class="check-cost">
+                                    <span class="check-cost-value">8 credits</span>
+                                </div>
+                            </button>
+
+                            <!-- Asset Ownership Check -->
+                            <button class="check-btn"
+                                    onclick="showEntityPrompt('asset')"
+                                    @(Model.CreditBalance < 7 ? "disabled" : "")>
+                                <div class="check-icon">
+                                    <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                        <path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                                    </svg>
+                                </div>
+                                <div class="check-name">Asset Ownership</div>
+                                <div class="check-cost">
+                                    <span class="check-cost-value">7 credits</span>
+                                </div>
+                            </button>
+
+                            <!-- Sanctions Screening -->
+                            <button class="check-btn"
+                                    onclick="showEntityPrompt('sanctions')"
+                                    @(Model.CreditBalance < 6 ? "disabled" : "")>
+                                <div class="check-icon">
+                                    <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                        <path d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
+                                    </svg>
+                                </div>
+                                <div class="check-name">Sanctions Screening</div>
+                                <div class="check-cost">
+                                    <span class="check-cost-value">6 credits</span>
+                                </div>
+                            </button>
+
+                            <!-- Tax Compliance -->
+                            <button class="check-btn"
+                                    onclick="showEntityPrompt('tax')"
+                                    @(Model.CreditBalance < 5 ? "disabled" : "")>
+                                <div class="check-icon">
+                                    <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                        <path d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                    </svg>
+                                </div>
+                                <div class="check-name">Tax Compliance</div>
+                                <div class="check-cost">
+                                    <span class="check-cost-value">5 credits</span>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Suggested Entities -->
+                <div class="card" style="margin-top: 2rem;">
                     <div class="card-header">
                         <h3 class="card-title">Suggested Entities for Verification</h3>
                         <p class="card-subtitle">Extracted from declaration form data</p>
@@ -257,11 +430,32 @@
             loadingOverlay.classList.remove('active');
         }
 
-        async function runCipcCheck(entityName) {
-            if (!confirm(`Run CIPC check for "${entityName}"? This will consume 5 credits.`)) {
+        function showEntityPrompt(checkType) {
+            const entityName = prompt(`Enter the entity/person name to verify:`);
+            if (!entityName || entityName.trim() === '') {
                 return;
             }
 
+            const checkConfig = {
+                'cipc': { name: 'CIPC Directorship', credits: 5, action: 'RunCipcCheck' },
+                'credit': { name: 'Credit Worthiness', credits: 10, action: 'RunCreditCheck' },
+                'criminal': { name: 'Criminal Record', credits: 8, action: 'RunCriminalCheck' },
+                'asset': { name: 'Asset Ownership', credits: 7, action: 'RunAssetCheck' },
+                'sanctions': { name: 'Sanctions Screening', credits: 6, action: 'RunSanctionsCheck' },
+                'tax': { name: 'Tax Compliance', credits: 5, action: 'RunTaxCheck' }
+            };
+
+            const config = checkConfig[checkType];
+            if (!config) return;
+
+            if (!confirm(`Run ${config.name} check for "${entityName}"? This will consume ${config.credits} credits.`)) {
+                return;
+            }
+
+            runVerificationCheck(entityName, config.action);
+        }
+
+        async function runVerificationCheck(entityName, action) {
             showLoading();
 
             try {
@@ -269,7 +463,7 @@
                 formData.append('submissionId', submissionId);
                 formData.append('entityName', entityName);
 
-                const response = await fetch('@Url.Action("RunCipcCheck", "Verification")', {
+                const response = await fetch('@Url.Action("' + action + '", "Verification")', {
                     method: 'POST',
                     headers: {
                         'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
@@ -292,39 +486,20 @@
             }
         }
 
+        async function runCipcCheck(entityName) {
+            if (!confirm(`Run CIPC check for "${entityName}"? This will consume 5 credits.`)) {
+                return;
+            }
+
+            runVerificationCheck(entityName, 'RunCipcCheck');
+        }
+
         async function runCreditCheck(entityName) {
             if (!confirm(`Run credit check for "${entityName}"? This will consume 10 credits.`)) {
                 return;
             }
 
-            showLoading();
-
-            try {
-                const formData = new FormData();
-                formData.append('submissionId', submissionId);
-                formData.append('entityName', entityName);
-
-                const response = await fetch('@Url.Action("RunCreditCheck", "Verification")', {
-                    method: 'POST',
-                    headers: {
-                        'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
-                    },
-                    body: formData
-                });
-
-                const result = await response.json();
-
-                if (result.success) {
-                    alert(result.message);
-                    location.reload();
-                } else {
-                    alert('Error: ' + result.message);
-                }
-            } catch (error) {
-                alert('An error occurred: ' + error.message);
-            } finally {
-                hideLoading();
-            }
+            runVerificationCheck(entityName, 'RunCreditCheck');
         }
 
         document.getElementById('notesForm').addEventListener('submit', async function(e) {
@@ -343,7 +518,7 @@
                     headers: {
                         'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
                     },
-                    body: formData
+                    body: formData;
                 });
 
                 const result = await response.json();

@@ -1,4 +1,6 @@
-﻿namespace Declarify.Models.ViewModels
+﻿using Declarify.Services.API;
+
+namespace Declarify.Models.ViewModels
 {
     public class DashboardViewModel
     {
@@ -114,11 +116,8 @@
 
     public class CreditManagementViewModel
     {
-        public int CurrentBalance { get; set; }
-        public List<CreditBatchInfo> CreditBatches { get; set; } = new();
-        public List<Credit> ExpiringCredits { get; set; } = new();
-        public bool LowBalanceWarning { get; set; }
-        public bool CriticalBalanceWarning { get; set; }
+        public CreditCheckResponse CreditBalance { get; set; }
+        public List<CreditRequestResponse> CreditRequests { get; set; } = new();
     }
 
     public class ReportsViewModel

@@ -12,7 +12,7 @@ namespace Declarify.Services.API
         private readonly ILicenseService _LS;
         private readonly ILogger<CentralHubApiService> _logger;
 
-        public CentralHubApiService(HttpClient httpClient,IConfiguration configuration,IHttpContextAccessor httpContextAccessor, ILicenseService licenseService, ILogger<CentralHubApiService> logger)
+        public CentralHubApiService(HttpClient httpClient, IConfiguration configuration, IHttpContextAccessor httpContextAccessor, ILicenseService licenseService, ILogger<CentralHubApiService> logger)
         {
             _httpClient = httpClient;
             _httpContextAccessor = httpContextAccessor;
@@ -42,7 +42,7 @@ namespace Declarify.Services.API
             _httpClient.DefaultRequestHeaders.Add("X-Company-Code", companyIdStr);
         }
 
-        public async Task<T> GetAsync<T>(string endpoint) where T: class
+        public async Task<T> GetAsync<T>(string endpoint) where T : class
         {
             await EnsureCompanyCodeHeaderAsync();
 
@@ -221,8 +221,37 @@ namespace Declarify.Services.API
             {
                 CompanyName = "Unknown Company",
                 CompanyRegistration = "N/A",
-                Industry = "N/A",
+                Domain = "N/A",
                 RegisteredDate = DateTime.UtcNow
+            };
+
+        }
+
+        //6. Collect Company's Credit Request
+        public async Task<List<CreditRequestResponse>> CollectCreditRequests()
+        {
+            var result = await GetAsync<List<CreditRequestResponse>>("api/core/check-credits-requests");
+
+            return result;
+        }
+
+        //7. Request Credits for the company
+        public async Task<CreditRequestDtoResponse> RequestCredits(int requestedCredits, string? note, string requestedBy, string requesterEmail)
+        {
+            var request = new CreditRequestDto
+            {
+                RequestedCredits = requestedCredits,
+                Reason = note,
+                RequestedBy = requestedBy,
+                RequesterEmail = requesterEmail
+            };
+
+            var result = await PostAsync<CreditRequestDtoResponse>("api/core/request-credits", request);
+
+            return result ?? new CreditRequestDtoResponse
+            {
+                success = false,
+                message = "Cannot reach credit server. Please try again.",
             };
 
         }
@@ -297,6 +326,33 @@ namespace Declarify.Services.API
         public string? Error { get; set; }
     }
 
+    public class CreditRequestResponse
+    {
+        public int RequestId { get; set; }
 
+        public string RequestReference { get; set; }
+
+        public int RequestedCredits { get; set; }
+        public DateTime RequestDate { get; set; } = DateTime.UtcNow;
+        public string? Status { get; set; }
+        public DateTime? ProcessedDate { get; set; }
+        public string? ProcessedBy { get; set; }
+        public string? RequestedBy { get; set; }
+        public string? Notes { get; set; }
+    }
+
+    public class CreditRequestDto
+    {
+        public int RequestedCredits { get; set; }
+        public string? Reason { get; set; }
+        public string RequestedBy { get; set; }
+        public string? RequesterEmail { get; set; }
+    }
+
+    public class CreditRequestDtoResponse
+    {
+        public bool success { get; set; }
+        public string? message { get; set; }
+    }
 
 }

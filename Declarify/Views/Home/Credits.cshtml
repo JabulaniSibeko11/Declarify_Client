@@ -1,0 +1,327 @@
+﻿@model Declarify.Models.ViewModels.CreditManagementViewModel
+
+@{
+    ViewData["Title"] = "Credits Management";
+    Layout = null;
+}
+
+<link href="~/css/credits.css" rel="stylesheet" />
+
+<div class="page-header">
+    <div class="header-content">
+        <h1 class="header-title">
+            <svg width="44" height="44" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Credits Management
+        </h1>
+        <p class="header-subtitle">Monitor your balance and manage credit requests</p>
+    </div>
+</div>
+
+<div class="content-container">
+    <!-- Credit Balance Cards -->
+    <div class="credit-cards-grid">
+        <div class="credit-card primary">
+            <div class="card-icon">
+                <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path d="M3 6h18M3 12h18m-9 6h9" />
+                </svg>
+            </div>
+            <div class="card-content">
+                <div class="card-label">Current Balance</div>
+                <div class="card-value">@Model.CreditBalance.currentBalance.ToString("N0")</div>
+                @if (Model.CreditBalance.lowCreditWarning)
+                {
+                    <div class="card-warning">
+                        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        Low balance warning
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="credit-card success">
+            <div class="card-icon">
+                <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+            </div>
+            <div class="card-content">
+                <div class="card-label">Total Purchased</div>
+                <div class="card-value">@Model.CreditBalance.totalPurchased.ToString("N0")</div>
+            </div>
+        </div>
+
+        <div class="credit-card info">
+            <div class="card-icon">
+                <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+            </div>
+            <div class="card-content">
+                <div class="card-label">Total Used</div>
+                <div class="card-value">@Model.CreditBalance.totalUsed.ToString("N0")</div>
+            </div>
+        </div>
+
+        <div class="credit-card accent">
+            <div class="card-icon">
+                <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+            </div>
+            <div class="card-content">
+                <div class="card-label">Usage Rate</div>
+                <div class="card-value">@(Model.CreditBalance.totalPurchased > 0 ? ((double)Model.CreditBalance.totalUsed / Model.CreditBalance.totalPurchased * 100).ToString("F1") : "0")%</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Control Panel -->
+    <div class="control-panel">
+        <div class="search-box">
+            <svg class="search-icon" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                <circle cx="11" cy="11" r="8" />
+                <path d="m21 21-4.35-4.35" />
+            </svg>
+            <input type="text" id="searchInput" placeholder="Search requests..." />
+        </div>
+
+        <div class="filter-section">
+            <button class="filter-pill active" data-filter="all">All</button>
+            <button class="filter-pill" data-filter="pending">Pending</button>
+            <button class="filter-pill" data-filter="approved">Approved</button>
+            <button class="filter-pill" data-filter="rejected">Rejected</button>
+        </div>
+
+        <button class="btn-primary" id="openModalBtn">
+            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
+                <path d="M12 5v14m7-7H5" />
+            </svg>
+            Request Credits
+        </button>
+    </div>
+
+    @if (Model.CreditRequests == null || !Model.CreditRequests.Any())
+    {
+        <div class="empty-state">
+            <svg width="120" height="120" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                <path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <h3>No Credit Requests Yet</h3>
+            <p>Get started by requesting your first credit batch</p>
+            <button class="btn-primary" onclick="document.getElementById('openModalBtn').click()">
+                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
+                    <path d="M12 5v14m7-7H5" />
+                </svg>
+                Request Your First Credits
+            </button>
+        </div>
+    }
+    else
+    {
+        <div class="table-container">
+            <table id="requestsTable">
+                <thead>
+                    <tr>
+                        <th style="width: 15%;">Reference</th>
+                        <th style="width: 12%;">Credits</th>
+                        <th style="width: 18%;">Request Date</th>
+                        <th style="width: 12%;">Status</th>
+                        <th style="width: 18%;">Processed Date</th>
+                        <th style="width: 25%;">Notes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var request in Model.CreditRequests.OrderByDescending(r => r.RequestDate))
+                    {
+                        var statusClass = request.Status?.ToLower() ?? "pending";
+                        <tr data-status="@statusClass">
+                            <td>
+                                <div class="reference-cell">
+                                    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                        <path d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                                    </svg>
+                                    <span>@request.RequestReference</span>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="credits-cell">
+                                    <strong>@request.RequestedCredits.ToString("N0")</strong>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="date-cell">
+                                    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                        <path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                    <span>@request.RequestDate.ToString("MMM dd, yyyy")</span>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="status-badge @statusClass">@request.Status</span>
+                            </td>
+                            <td>
+                                @if (request.ProcessedDate.HasValue)
+                                {
+                                    <div class="date-cell">
+                                        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                            <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        <span>@request.ProcessedDate.Value.ToString("MMM dd, yyyy")</span>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">—</span>
+                                }
+                            </td>
+                            <td>
+                                <div class="notes-cell">
+                                    @(string.IsNullOrEmpty(request.Notes) ? "—" : request.Notes)
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+<!-- Credit Request Modal -->
+<div id="creditModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>
+                <svg width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Request Credits
+            </h2>
+            <button class="modal-close" id="closeModalBtn">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+
+        <form method="post" action="@Url.Action("CreateCreditRequest")" id="creditRequestForm">
+            @Html.AntiForgeryToken()
+
+            <div class="form-group">
+                <label for="requestedCredits">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                    </svg>
+                    Number of Credits
+                </label>
+                <input type="number" id="requestedCredits" name="RequestedCredits" min="1" required placeholder="Enter credit amount" />
+            </div>
+
+            <div class="form-group">
+                <label for="reason">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Reason for Request
+                </label>
+                <textarea id="reason" name="Reason" rows="4" placeholder="Explain why you need these credits (optional)"></textarea>
+            </div>
+
+            <div class="modal-actions">
+                <button type="button" class="btn-secondary" onclick="document.getElementById('closeModalBtn').click()">
+                    Cancel
+                </button>
+                <button type="submit" class="btn-primary">
+                    <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                        <path d="M5 13l4 4L19 7" />
+                    </svg>
+                    Submit Request
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+
+    <script>
+        // Modal functionality
+        const modal = document.getElementById('creditModal');
+        const openBtn = document.getElementById('openModalBtn');
+        const closeBtn = document.getElementById('closeModalBtn');
+
+        openBtn.addEventListener('click', function() {
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        });
+
+        closeBtn.addEventListener('click', function() {
+            modal.style.display = 'none';
+            document.body.style.overflow = 'auto';
+            document.getElementById('creditRequestForm').reset();
+        });
+
+        window.addEventListener('click', function(e) {
+            if (e.target === modal) {
+                closeBtn.click();
+            }
+        });
+
+        // Filter functionality
+        document.querySelectorAll('.filter-pill').forEach(pill => {
+            pill.addEventListener('click', function() {
+                document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
+                this.classList.add('active');
+
+                const filter = this.dataset.filter;
+                const rows = document.querySelectorAll('#requestsTable tbody tr');
+
+                rows.forEach(row => {
+                    if (filter === 'all' || row.dataset.status === filter) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+            });
+        });
+
+        // Search functionality
+        const searchInput = document.getElementById('searchInput');
+        if (searchInput) {
+            searchInput.addEventListener('input', function() {
+                const searchTerm = this.value.toLowerCase();
+                const rows = document.querySelectorAll('#requestsTable tbody tr');
+
+                rows.forEach(row => {
+                    const reference = row.querySelector('.reference-cell span')?.textContent.toLowerCase() || '';
+                    const notes = row.querySelector('.notes-cell')?.textContent.toLowerCase() || '';
+
+                    if (reference.includes(searchTerm) || notes.includes(searchTerm)) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+            });
+        }
+
+        // Form validation
+        document.getElementById('creditRequestForm').addEventListener('submit', function(e) {
+            const credits = document.getElementById('requestedCredits').value;
+
+            if (credits <= 0) {
+                e.preventDefault();
+                alert('Please enter a valid number of credits');
+                return;
+            }
+
+            if (!confirm(`Are you sure you want to request ${credits} credits?`)) {
+                e.preventDefault();
+            }
+        });
+    </script>
