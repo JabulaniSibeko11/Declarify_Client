@@ -79,7 +79,7 @@ namespace Declarify.Services
                 {
                     CompanyName = "Unknown Company",
                     CompanyRegistration = "N/A",
-                    Industry = "N/A",
+                    Domain = "N/A",
                     RegisteredDate = DateTime.UtcNow
                 };
             }

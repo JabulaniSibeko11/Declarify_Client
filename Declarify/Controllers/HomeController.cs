@@ -172,6 +172,8 @@ namespace Declarify.Controllers
                     await _userManager.UpdateAsync(adminUser);
                 }
 
+                await _db.SaveChangesAsync();
+
                 // 3. Create or update Employee record
                 var employee = await _db.Employees.Include(e => e.ApplicationUser).FirstOrDefaultAsync(e => e.Email_Address == result.Email);
 
@@ -1145,6 +1147,16 @@ namespace Declarify.Controllers
                 return RedirectToAction("ImportEmployees");
             }
 
+            //check if email matches with domain
+            var companyData = await _centralHub.GetCompanyInformation();
+            if (companyData == null || companyData.CompanyName == "Unknown Company")
+            {
+                TempData["Error"] =  "Cannot verify company data — Company server unreachable. Please try again later.";
+                return RedirectToAction("ImportEmployees");
+            }
+
+
+
             var employees = new List<EmployeeImportDto>();
 
             // =======================
@@ -1202,9 +1214,14 @@ namespace Declarify.Controllers
                         continue;
                     }
 
-                    var employee = await _db.Employees
-                        .Include(e => e.ApplicationUser)
-                        .FirstOrDefaultAsync(e => e.EmployeeNumber == dto.EmployeeNumber);
+                   if (!dto.Email_Address.EndsWith(companyData.Domain, StringComparison.OrdinalIgnoreCase))
+                    {
+                        failed++;
+                        errors.Add("Employee email is not part of the org domain");
+                        continue;
+                   }
+
+                    var employee = await _db.Employees.Include(e => e.ApplicationUser).FirstOrDefaultAsync(e => e.EmployeeNumber == dto.EmployeeNumber);
 
                     if (employee == null)
                     {
@@ -1270,6 +1287,12 @@ namespace Declarify.Controllers
             // =======================
             foreach (var dto in employees)
             {
+                if (!dto.Email_Address.EndsWith(companyData.Domain, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+
                 if (string.IsNullOrWhiteSpace(dto.ManagerEmployeeNumber))
                     continue;
 
@@ -1492,7 +1515,15 @@ namespace Declarify.Controllers
 
             try
             {
-                
+                //check if email matches with domain
+                var companyData = await _centralHub.GetCompanyInformation();
+                if (companyData == null || companyData.CompanyName == "Unknown Company")
+                {
+                    throw new Exception("Cannot verify company data — Company server unreachable. Please try again later.");
+                }
+
+                if (!model.Email.EndsWith(companyData.Domain, StringComparison.OrdinalIgnoreCase)) throw new Exception("Employee email is not part of the company");
+
 
                 var employee = await _ES.CreateEmployeeAsync(model);
 
@@ -2007,24 +2038,35 @@ namespace Declarify.Controllers
         [HttpGet("credits")]
         public async Task<IActionResult> Credits()
         {
+            //auth access
+            if (!User.Identity.IsAuthenticated)
+            {
+                return RedirectToAction("Login", "Home");
+            }
+
+            if (!await _LS.IsLicenseValidAsync())
+            {
+                // return View("LicenseExpired");
+                return View("LandingPage");
+            }
+
             try
             {
-                if (!await _LS.IsLicenseValidAsync())
+                //Collect credits and historical requests
+                //API Calls
+                var creditBalanceResult = await _centralHub.CheckCreditBalance();
+                if (creditBalanceResult == null || !creditBalanceResult.hasCredits)
                 {
-                    return RedirectToAction("LicenseExpired");
+                    TempData["ErrorCheckCredits"] = creditBalanceResult == null ? "Cannot verify credits — license server unreachable. Please try again later." : "";
                 }
 
-                var balance = await _CS.GetAvailableCreditsAsync();
-                var batches = await _CS.GetCreditBatchesAsync();
-                var expiringCredits = await _CS.GetExpiringCreditsAsync(30);
+                var creditRequestResult = await _centralHub.CollectCreditRequests();
+                //
 
                 var viewModel = new CreditManagementViewModel
                 {
-                    CurrentBalance = balance,
-                    CreditBatches = batches,
-                    ExpiringCredits = expiringCredits,
-                    LowBalanceWarning = balance < 50,
-                    CriticalBalanceWarning = balance < 20
+                    CreditBalance = creditBalanceResult,
+                    CreditRequests = creditRequestResult,
                 };
 
                 return View(viewModel);
@@ -2036,6 +2078,75 @@ namespace Declarify.Controllers
                 return View(new CreditManagementViewModel());
             }
         }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> CreateCreditRequest(int RequestedCredits,string? Reason)
+        {
+            //auth access
+            if (!User.Identity.IsAuthenticated)
+            {
+                return RedirectToAction("Login", "Home");
+            }
+
+            if (!await _LS.IsLicenseValidAsync())
+            {
+                // return View("LicenseExpired");
+                return View("LandingPage");
+            }
+
+
+
+            try
+            {
+
+                var user = await _db.Employees.Where(em => em.Email_Address == User.Identity.Name.ToString()).FirstOrDefaultAsync();
+
+                string email;
+                string fullName;
+
+                if (user == null)
+                {
+                    var appUser = await _userManager.FindByEmailAsync(User.Identity.Name);
+                    if (appUser == null)
+                    {
+                        throw new Exception("Failed to Request Credits, Requester Details not found");
+                    }
+
+                    email = appUser.Email;
+                    fullName = appUser.Full_Name;
+                }
+                else
+                {
+                    email = user.Email_Address;
+                    fullName = user.Full_Name;
+                }
+
+
+                var result = await _centralHub.RequestCredits(RequestedCredits, Reason, fullName, email);
+
+                if (!result.success)
+                {
+                    TempData["Error"] = "Failed to Request Credits.";
+                }
+                else
+                {
+                    TempData["Sucess"] = "Credits sucessfully requested";
+                }
+
+                return RedirectToAction("Credits");
+
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error requesting credits");
+                TempData["Error"] = "Failed to Request Credits.";
+                return RedirectToAction("Credits");
+            }
+
+        }
+
+
         /// Sync credits with central hub (NFR 5.2.5)
         [HttpPost("credits/sync")]
         [ValidateAntiForgeryToken]
