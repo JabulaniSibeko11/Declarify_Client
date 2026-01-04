@@ -28,6 +28,8 @@ namespace Declarify.Models
         // Track password setup date
         public DateTime? PasswordSetupDate { get; set; }
 
+      
+
         // Navigation to Employee
         public virtual Employee? Employee { get; set; }
     }

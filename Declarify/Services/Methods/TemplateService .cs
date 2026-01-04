@@ -2,6 +2,7 @@
 using Declarify.Models;
 using Declarify.Models.ViewModels;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 
 namespace Declarify.Services.Methods
 {
@@ -41,21 +42,31 @@ namespace Declarify.Services.Methods
             return template;
         }
         // Create new template from definition (FR 4.2.1)
+        // In your TemplateService (or wherever CreateAsync is defined):
         public async Task<Template> CreateAsync(TemplateDefinition definition)
         {
+            // ✅ IMPORTANT: Use camelCase when serializing to database
+            var serializeOptions = new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                WriteIndented = true  // Makes it readable in database, optional
+            };
+
             var template = new Template
             {
                 TemplateName = definition.TemplateName,
                 Description = definition.Description,
-                TemplateConfig = System.Text.Json.JsonSerializer.Serialize(definition.Config),
-                Status = "Active",
+                TemplateConfig = System.Text.Json.JsonSerializer.Serialize(definition.Config, serializeOptions),
+                Status = definition.Status.ToString(),
                 CreatedDate = DateTime.UtcNow
             };
 
             _db.Templates.Add(template);
             await _db.SaveChangesAsync();
 
-            _logger.LogInformation($"Created new template: {template.TemplateName} (ID: {template.TemplateId})");
+            _logger.LogInformation("💾 Saved template to database: {Name} (ID: {Id})",
+                template.TemplateName, template.TemplateId);
+
             return template;
         }
 

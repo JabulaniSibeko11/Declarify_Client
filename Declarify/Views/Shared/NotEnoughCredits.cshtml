@@ -1,15 +1,89 @@
-﻿@{
-    ViewData["Title"] = "Not Enough Credits";
-    // Layout = "_Layout"; 
-}
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Declarify - Credit Alert</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="~/css/nocredit.css" rel="stylesheet" />
+</head>
+<body>
+    <!-- Animated Background Orbs -->
+    <div class="bg-orb orb-1"></div>
+    <div class="bg-orb orb-2"></div>
 
-<div class="text-center mt-5">
-    <h1>Not Enough Credits</h1>
-    <p class="lead mt-4">
-        @(TempData["ErrorCheckCredits"] ?? "Your organization does not have sufficient credits to access this feature.")
-    </p>
-    <p>
-        Please contact your administrator.
-    </p>
-    <a href="/" class="btn btn-primary mt-3">Return Home</a>
-</div>
+    <!-- Modal -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal-container">
+            <!-- Decorative Header Bar -->
+            <div class="modal-header-bar"></div>
+
+            <!-- Close Button -->
+            <button class="close-btn" onclick="closeModal()" aria-label="Close modal">
+                <svg viewBox="0 0 24 24" fill="none">
+                    <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+            </button>
+
+            <!-- Modal Content -->
+            <div class="modal-content">
+                <!-- Icon -->
+                <div class="icon-container">
+                    <div class="credit-icon">
+                        <svg viewBox="0 0 24 24" fill="none">
+                            <circle cx="12" cy="12" r="10" />
+                            <path d="M12 8v4m0 4h.01" />
+                        </svg>
+                    </div>
+                </div>
+
+                <!-- Status Badge -->
+                <div class="status-badge">
+                    Credit Balance Insufficient
+                </div>
+
+                <!-- Title -->
+                <h1>Credit Limit Reached</h1>
+
+                <!-- Message -->
+                <p class="message">
+                    Your organization does not have sufficient credits to access this feature.
+                </p>
+                <p class="sub-message">
+                    Please contact your administrator to purchase additional credits or renew your license.
+                </p>
+
+                <!-- Actions -->
+                <div class="modal-actions">
+                    <a href="/" class="btn btn-primary">
+                        <span>Return to Dashboard</span>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M5 12h14m-7-7l7 7-7 7" />
+                        </svg>
+                    </a>
+                    <button class="btn btn-secondary" onclick="contactAdmin()">
+                        <span>Contact Admin</span>
+                    </button>
+                </div>
+
+                <!-- Info Box -->
+                <div class="info-box">
+                    <div class="info-icon">
+                        <svg viewBox="0 0 24 24" fill="none">
+                            <circle cx="12" cy="12" r="10" />
+                            <path d="M12 16v-4m0-4h.01" />
+                        </svg>
+                    </div>
+                    <div class="info-text">
+                        <strong>Need Help?</strong> Credits are required for DOI form submissions and external verification checks. Your administrator can load credits via the Declarify Hub.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="~/js/nocredit.js"></script>
+   
+</body>
+</html>

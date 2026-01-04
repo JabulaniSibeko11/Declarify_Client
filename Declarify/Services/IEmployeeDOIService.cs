@@ -17,6 +17,8 @@ namespace Declarify.Services
         Task<Employee> GetEmployeeByIdAsync(int employeeId);
         // Additional methods for Employee Dashboard
         Task<EmployeeDashboardViewModel> GetEmployeeDashboardAsync(int employeeId);
+
+        Task<EmployeeDashboardViewModel> GetAdminDashboardAsync(int employeeId);
         Task<List<FormTask>> GetEmployeeTasksAsync(int employeeId);
         Task<FormSubmission?> GetDraftSubmissionAsync(int taskId);
         Task<EmployeeProfile> GetEmployeeProfileAsync(int employeeId);

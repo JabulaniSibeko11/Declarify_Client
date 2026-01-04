@@ -38,6 +38,9 @@
         public Employee? employee { get; set; }
 
         public BulkRequestViewModel BulkData { get; set; } = new BulkRequestViewModel();
+
+      
+
     }
 
     public class BulkRequestViewModel
@@ -173,4 +176,6 @@
         public bool Success { get; set; }
         public string Message { get; set; } = string.Empty;
     }
+
+
 }

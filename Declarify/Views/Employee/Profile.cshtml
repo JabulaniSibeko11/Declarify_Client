@@ -1,0 +1,438 @@
+﻿@model Declarify.Models.ViewModels.ProfileViewModel
+
+@{
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Profile - Declarify</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <link href="~/css/profilecss1.css" rel="stylesheet" />
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <div class="brand">
+                <span class="brand-name">Declar<span>ify</span></span>
+            </div>
+            <a href="@Url.Action("Index", "Home")" class="btn btn-ghost">
+                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+                Back to Dashboard
+            </a>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="page-header">
+            <h1 class="page-title">My Profile</h1>
+            <p class="page-subtitle">Update your personal information and signature</p>
+        </div>
+
+        @if (TempData["SuccessMessage"] != null)
+        {
+            <div class="alert alert-success">
+                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>@TempData["SuccessMessage"]</span>
+            </div>
+        }
+
+        @if (!ViewData.ModelState.IsValid)
+        {
+            <div class="validation-summary">
+                <h4>Please correct the following errors:</h4>
+                <ul>
+                    @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+                    {
+                        <li>@error.ErrorMessage</li>
+                    }
+                </ul>
+            </div>
+        }
+
+        <form asp-action="Profile" method="post" enctype="multipart/form-data" id="profileForm">
+            @Html.AntiForgeryToken()
+            <input type="hidden" asp-for="EmployeeId" />
+            <input type="hidden" name="signatureData" id="signatureData" />
+
+            <div class="profile-grid">
+                <!-- Sidebar -->
+                <div class="profile-card profile-sidebar">
+                    <div class="avatar-section">
+                        <div class="avatar">
+                            @(Model.FullName?.Substring(0, Math.Min(2, Model.FullName.Length)).ToUpper() ?? "NA")
+                        </div>
+                        <h2 class="profile-name">@Model.FullName</h2>
+                        <p class="profile-position">@Model.Position</p>
+                        <p class="profile-department">@Model.Department</p>
+                    </div>
+
+                    <div class="signature-preview">
+                        <div class="signature-label">Current Signature</div>
+                        @if (!string.IsNullOrEmpty(Model.CurrentSignaturePath))
+                        {
+                            <img src="@Model.CurrentSignaturePath" alt="Signature" class="signature-img" />
+                            @if (Model.SignatureCreatedDate.HasValue)
+                            {
+                                <div class="signature-date">
+                                    Uploaded: @Model.SignatureCreatedDate.Value.ToString("MMM dd, yyyy")
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <p class="no-signature">No signature uploaded</p>
+                        }
+                    </div>
+
+                    @if (Model.ManagerName != null)
+                    {
+                        <div class="manager-info">
+                            <div class="signature-label">Line Manager</div>
+                            <div class="manager-name">@Model.ManagerName</div>
+                        </div>
+                    }
+                </div>
+
+                <!-- Main Form -->
+                <div class="profile-card">
+                    <div class="form-section">
+                        <h3 class="section-title">Personal Information</h3>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label" asp-for="EmployeeNumber">
+                                    Employee Number<span class="required">*</span>
+                                </label>
+                                <input class="form-input" asp-for="EmployeeNumber" readonly />
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label" asp-for="EmailAddress">
+                                    Email Address<span class="required">*</span>
+                                </label>
+                                <input class="form-input" type="email" asp-for="EmailAddress" />
+                                <span asp-validation-for="EmailAddress" class="text-error"></span>
+                            </div>
+
+                            <div class="form-group full-width">
+                                <label class="form-label" asp-for="FullName">
+                                    Full Name<span class="required">*</span>
+                                </label>
+                                <input class="form-input" asp-for="FullName" />
+                                <span asp-validation-for="FullName" class="text-error"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <h3 class="section-title">Position & Department</h3>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label" asp-for="Position">
+                                    Position<span class="required">*</span>
+                                </label>
+                                <input class="form-input" asp-for="Position" />
+                                <span asp-validation-for="Position" class="text-error"></span>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label" asp-for="Department">
+                                    Department<span class="required">*</span>
+                                </label>
+                                <input class="form-input" asp-for="Department" />
+                                <span asp-validation-for="Department" class="text-error"></span>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label" asp-for="Region">
+                                    Region
+                                </label>
+                                <input class="form-input" asp-for="Region" />
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label" asp-for="PhoneNumber">
+                                    Phone Number
+                                </label>
+                                <input class="form-input" type="tel" asp-for="PhoneNumber" placeholder="+27 XX XXX XXXX" />
+                                <span asp-validation-for="PhoneNumber" class="text-error"></span>
+                            </div>
+
+                            <div class="form-group full-width">
+                                <label class="form-label" asp-for="ManagerId">
+                                    Reporting Manager
+                                </label>
+                                <select class="form-select" asp-for="ManagerId">
+                                    <option value="">Select Manager</option>
+                                    @if (Model.AvailableManagers != null)
+                                    {
+                                        @foreach (var manager in Model.AvailableManagers)
+                                        {
+                                            <option value="@manager.EmployeeId">
+                                                @manager.FullName - @manager.Position (@manager.Department)
+                                            </option>
+                                        }
+                                    }
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <h3 class="section-title">Security & Password</h3>
+                        <div class="password-change-notice">
+                            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                            </svg>
+                            <span>Leave these fields empty if you don't want to change your password</span>
+                        </div>
+                        <div class="form-grid">
+                            <div class="form-group full-width">
+                                <label class="form-label" asp-for="CurrentPassword">
+                                    Current Password
+                                </label>
+                                <input class="form-input" type="password" asp-for="CurrentPassword" autocomplete="current-password" />
+                                <span asp-validation-for="CurrentPassword" class="text-error"></span>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label" asp-for="NewPassword">
+                                    New Password
+                                </label>
+                                <input class="form-input" type="password" asp-for="NewPassword" autocomplete="new-password" />
+                                <span asp-validation-for="NewPassword" class="text-error"></span>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label" asp-for="ConfirmPassword">
+                                    Confirm New Password
+                                </label>
+                                <input class="form-input" type="password" asp-for="ConfirmPassword" autocomplete="new-password" />
+                                <span asp-validation-for="ConfirmPassword" class="text-error"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <h3 class="section-title">Digital Signature</h3>
+
+                        <!-- Tab Navigation -->
+                        <div class="signature-tabs">
+                            <button type="button" class="tab-button active" onclick="switchTab('draw')">
+                                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                </svg>
+                                Draw Signature
+                            </button>
+                            <button type="button" class="tab-button" onclick="switchTab('upload')">
+                                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                </svg>
+                                Upload Image
+                            </button>
+                        </div>
+
+                        <!-- Draw Tab Content -->
+                        <div id="drawTab" class="tab-content active">
+                            <div class="signature-canvas-container">
+                                <canvas id="signatureCanvas" width="600" height="200"></canvas>
+                                <div class="canvas-controls">
+                                    <button type="button" class="btn-canvas" onclick="clearCanvas()">
+                                        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                            <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                        </svg>
+                                        Clear
+                                    </button>
+                                </div>
+                            </div>
+                            <p style="font-size: 0.75rem; color: var(--color-text-muted); margin-top: 0.5rem;">
+                                Draw your signature using your mouse or touchscreen
+                            </p>
+                        </div>
+
+                        <!-- Upload Tab Content -->
+                        <div id="uploadTab" class="tab-content">
+                            <div class="form-group">
+                                <div class="file-input-wrapper">
+                                    <input type="file"
+                                           id="signatureFile"
+                                           name="SignatureFile"
+                                           accept="image/*"
+                                           class="file-input"
+                                           onchange="updateFileName(this)" />
+                                    <label for="signatureFile" class="file-input-label">
+                                        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                            <path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                        </svg>
+                                        Choose File
+                                    </label>
+                                    <div class="file-name" id="fileName">No file chosen</div>
+                                </div>
+                                <span asp-validation-for="SignatureFile" class="text-error"></span>
+                                <p style="font-size: 0.75rem; color: var(--color-text-muted); margin-top: 0.5rem;">
+                                    Accepted formats: JPG, PNG, GIF (Max 2MB)
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <a href="@Url.Action("Dashboard", "Home")" class="btn btn-ghost">Cancel</a>
+                        <button type="submit" class="btn btn-primary">
+                            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            Save Changes
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        // Canvas Drawing Functionality
+        const canvas = document.getElementById('signatureCanvas');
+        const ctx = canvas.getContext('2d');
+        let isDrawing = false;
+        let lastX = 0;
+        let lastY = 0;
+
+        // Set canvas background to white
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Configure drawing style
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        function startDrawing(e) {
+            isDrawing = true;
+            const rect = canvas.getBoundingClientRect();
+            [lastX, lastY] = getCoordinates(e, rect);
+        }
+
+        function draw(e) {
+            if (!isDrawing) return;
+
+            const rect = canvas.getBoundingClientRect();
+            const [x, y] = getCoordinates(e, rect);
+
+            ctx.beginPath();
+            ctx.moveTo(lastX, lastY);
+            ctx.lineTo(x, y);
+            ctx.stroke();
+
+            [lastX, lastY] = [x, y];
+        }
+
+        function stopDrawing() {
+            isDrawing = false;
+        }
+
+        function getCoordinates(e, rect) {
+            if (e.touches) {
+                return [
+                    e.touches[0].clientX - rect.left,
+                    e.touches[0].clientY - rect.top
+                ];
+            }
+            return [e.clientX - rect.left, e.clientY - rect.top];
+        }
+
+        // Mouse events
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', stopDrawing);
+        canvas.addEventListener('mouseout', stopDrawing);
+
+        // Touch events
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            startDrawing(e);
+        });
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            draw(e);
+        });
+        canvas.addEventListener('touchend', stopDrawing);
+
+        function clearCanvas() {
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+        // Tab Switching
+        function switchTab(tab) {
+            const drawTab = document.getElementById('drawTab');
+            const uploadTab = document.getElementById('uploadTab');
+            const tabButtons = document.querySelectorAll('.tab-button');
+
+            if (tab === 'draw') {
+                drawTab.classList.add('active');
+                uploadTab.classList.remove('active');
+                tabButtons[0].classList.add('active');
+                tabButtons[1].classList.remove('active');
+
+                // Clear file input when switching to draw
+                document.getElementById('signatureFile').value = '';
+                document.getElementById('fileName').textContent = 'No file chosen';
+            } else {
+                uploadTab.classList.add('active');
+                drawTab.classList.remove('active');
+                tabButtons[1].classList.add('active');
+                tabButtons[0].classList.remove('active');
+
+                // Clear canvas when switching to upload
+                clearCanvas();
+            }
+        }
+
+        // File Input Handler
+        function updateFileName(input) {
+            const fileName = document.getElementById('fileName');
+            if (input.files && input.files[0]) {
+                fileName.textContent = input.files[0].name;
+            } else {
+                fileName.textContent = 'No file chosen';
+            }
+        }
+
+        // Form Submission Handler
+        document.getElementById('profileForm').addEventListener('submit', function(e) {
+            const drawTab = document.getElementById('drawTab');
+            const uploadTab = document.getElementById('uploadTab');
+
+            // If draw tab is active, save canvas data
+            if (drawTab.classList.contains('active')) {
+                // Check if canvas is not empty
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const pixels = imageData.data;
+                let hasDrawing = false;
+
+                // Check if there's any non-white pixel
+                for (let i = 0; i < pixels.length; i += 4) {
+                    if (pixels[i] < 255 || pixels[i + 1] < 255 || pixels[i + 2] < 255) {
+                        hasDrawing = true;
+                        break;
+                    }
+                }
+
+                if (hasDrawing) {
+                    const signatureDataUrl = canvas.toDataURL('image/png');
+                    document.getElementById('signatureData').value = signatureDataUrl;
+                }
+            }
+        });
+    </script>
+</body>
+</html>

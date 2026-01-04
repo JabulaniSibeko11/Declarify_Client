@@ -20,6 +20,9 @@ const advancedTableBuilder = {
     gridColumns: 3,
     gridCells: [],
     selectedCells: [],
+    fieldLabel: '',
+    fieldHelpText: '',
+    fieldRequired: false,
 
     init(fieldId, sectionId) {
         this.currentFieldId = fieldId;
@@ -30,6 +33,9 @@ const advancedTableBuilder = {
         this.gridColumns = 3;
         this.gridCells = [];
         this.selectedCells = [];
+        this.fieldLabel = '';
+        this.fieldHelpText = '';
+        this.fieldRequired = false;
     }
 };
 
@@ -365,10 +371,50 @@ function generateFieldPreview(field) {
             return `<div class="radio-group-preview">${(field.options || []).map(opt => `<label><input type="radio" name="prev-${field.fieldId}" disabled> ${escapeHTML(opt)}</label>`).join('')}</div>`;
         case 'file':
             return `<div class="file-upload-preview"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg><span>Click to upload file</span></div>`;
-        case 'table':
-            return `<div class="table-preview">📊 Simple Table: ${field.tableConfig?.columns?.length || 0} columns</div>`;
-        case 'advancedTable':
-            return `<div class="table-preview">📊 Advanced Table: ${field.columns?.length || 0} columns, ${field.rows || 0} rows</div>`;
+        case 'table': {
+            const columns = getTableColumns(field);
+
+            if (!columns.length) {
+                return `<div class="table-preview warning">⚠ No columns defined</div>`;
+            }
+
+            return `
+        <table class="preview-table">
+            <thead>
+                <tr>
+                    ${columns.map(col => `<th>${escapeHTML(col.name || col)}</th>`).join('')}
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    ${columns.map(() => `<td>—</td>`).join('')}
+                </tr>
+            </tbody>
+        </table>
+    `;
+        }
+        case 'advancedTable': {
+            const columns = field.columns || [];
+
+            if (!columns.length) {
+                return `<div class="table-preview warning">⚠ No columns defined</div>`;
+            }
+
+            return `
+        <table class="preview-table advanced">
+            <thead>
+                <tr>
+                    ${columns.map(col => `<th>${escapeHTML(col.name || col)}</th>`).join('')}
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    ${columns.map(() => `<td>—</td>`).join('')}
+                </tr>
+            </tbody>
+        </table>
+    `;
+        }
         case 'signature':
             return `<div class="signature-preview"><div class="signature-pad">✍️ Signature area</div></div>`;
         case 'heading':
@@ -507,6 +553,7 @@ function populateEditForm(field) {
     }
 }
 
+
 // ============================================================================
 // ADD/EDIT FIELD MODAL
 // ============================================================================
@@ -540,6 +587,8 @@ function showAddFieldModal(sectionId) {
 }
 
 function selectFieldType(fieldType) {
+    console.log('🎯 selectFieldType called with fieldType:', fieldType);
+
     selectedFieldType = fieldType;
 
     const storedSectionId = currentAddFieldSection;
@@ -550,7 +599,32 @@ function selectFieldType(fieldType) {
         return;
     }
 
-    console.log('✅ selectFieldType called with section:', storedSectionId, 'fieldType:', fieldType);
+    // ✅ FIX: Advanced table should skip config and go straight to wizard
+    if (fieldType === 'advancedTable') {
+        console.log('✅ Advanced table selected - opening wizard directly');
+        console.log('   Section ID:', storedSectionId);
+        closeAddFieldModal();
+
+        // Small delay to ensure modal is closed before opening wizard
+        setTimeout(() => {
+            // Generate field ID and open wizard
+            const fieldId = `field_${fieldIdCounter++}`;
+            console.log('   Generated field ID:', fieldId);
+
+            advancedTableBuilder.init(fieldId, storedSectionId);
+            advancedTableBuilder.fieldLabel = '';
+            advancedTableBuilder.fieldHelpText = '';
+            advancedTableBuilder.fieldRequired = false;
+
+            console.log('   Opening advanced table wizard...');
+            openAdvancedTableWizard();
+        }, 100);
+
+        return;
+    }
+
+    console.log('✅ Regular field type - showing config form');
+    console.log('   Section ID:', storedSectionId);
 
     const selectStep = document.getElementById('selectFieldTypeStep');
     const configStep = document.getElementById('configureFieldStep');
@@ -560,6 +634,7 @@ function selectFieldType(fieldType) {
 
     generateFieldConfigForm(fieldType);
 }
+
 
 function closeAddFieldModal() {
     const modal = document.getElementById('addFieldModal');
@@ -584,6 +659,18 @@ function backToFieldTypeSelection() {
 function generateFieldConfigForm(fieldType) {
     const container = document.getElementById('configureFieldStep');
     if (!container) return;
+
+    // ✅ SAFETY CHECK: Advanced table should never reach this function
+    if (fieldType === 'advancedTable') {
+        console.error('❌ ERROR: generateFieldConfigForm called for advancedTable - this should not happen!');
+        console.log('→ Redirecting to advanced table wizard...');
+        closeAddFieldModal();
+
+        const fieldId = `field_${fieldIdCounter++}`;
+        advancedTableBuilder.init(fieldId, currentAddFieldSection);
+        openAdvancedTableWizard();
+        return;
+    }
 
     const fieldTypeInfo = getFieldTypeInfo(fieldType);
 
@@ -683,6 +770,9 @@ function generateFieldConfigForm(fieldType) {
         `;
     }
 
+    // ===================================================================
+    // SIMPLE TABLE CONFIGURATION
+    // ===================================================================
     if (fieldType === 'table') {
         html += `
             <div class="form-group-wizard">
@@ -703,75 +793,36 @@ function generateFieldConfigForm(fieldType) {
                 <input type="number" id="newFieldTableMinRows" value="1" min="1" max="20">
                 <small>Minimum number of data rows required</small>
             </div>
-            
-            <div class="form-group-wizard">
-                <label class="checkbox-label">
-                    <input type="checkbox" id="newFieldTableAllowAddRows" checked>
-                    <span>Allow users to add more rows</span>
-                </label>
-            </div>
-        `;
-    }
-
-    if (fieldType === 'advancedTable') {
-        html += `
-            <div class="form-grid-2">
-                <div class="form-group-wizard">
-                    <label>Number of Columns <span class="required-mark">*</span></label>
-                    <input type="number" id="newFieldAdvTableRows" value="4" min="1" max="20">
-                </div>
-            </div>
-            
-            <div class="form-group-wizard">
-                <label>Define Columns <span class="required-mark">*</span></label>
-                <div id="advTableColumnsContainer">
-                </div>
-                <button type="button" class="btn btn-ghost btn-sm" onclick="addAdvTableColumnField()" 
-                        style="margin-top: 8px;">
-                    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <path d="M12 4v16m8-8H4" />
-                    </svg>
-                    Add Column
-                </button>
-            </div>
-            
-            <div class="form-group-wizard">
-                <label>Grid Layout Columns</label>
-                <input type="number" id="newFieldAdvTableGridColumns" value="3" min="1" max="6">
-                <small>How columns should be laid out in the grid (advanced)</small>
-            </div>
-        `;
+        <div class="form-group-wizard">
+            <label class="checkbox-label">
+                <input type="checkbox" id="newFieldTableAllowAddRows" checked>
+                <span>Allow users to add more rows</span>
+            </label>
+        </div>
+    `;
     }
 
     html += `
-        <div class="modal-actions">
-            <button class="btn btn-ghost" onclick="backToFieldTypeSelection()">
-                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path d="M15 19l-7-7 7-7" />
-                </svg>
-                Back
-            </button>
-            <button class="btn btn-primary" onclick="addConfiguredField()">
-                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path d="M12 4v16m8-8H4" />
-                </svg>
-                ${currentEditingField ? 'Update Field' : 'Add Field'}
-            </button>
-        </div>
-    `;
+    <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="backToFieldTypeSelection()">
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path d="M15 19l-7-7 7-7" />
+            </svg>
+            Back
+        </button>
+        <button class="btn btn-primary" onclick="addConfiguredField()">
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path d="M12 4v16m8-8H4" />
+            </svg>
+            ${currentEditingField ? 'Update Field' : 'Add Field'}
+        </button>
+    </div>
+`;
 
     container.innerHTML = html;
 
     if (fieldType === 'table') {
         setTimeout(() => updateTableColumnsPreview(), 100);
-    }
-    if (fieldType === 'advancedTable') {
-        setTimeout(() => {
-            updateAdvTableColumnsPreview();
-            for (let i = 0; i < 3; i++) {
-                addAdvTableColumnField();
-            }
-        }, 100);
     }
 
     setTimeout(() => {
@@ -781,81 +832,866 @@ function generateFieldConfigForm(fieldType) {
 }
 
 // ===================================================================
-// HELPER FUNCTIONS FOR TABLE CONFIGURATION IN MODAL
+// SIMPLE TABLE - HELPER FUNCTIONS
 // ===================================================================
-
 function updateTableColumnsPreview() {
     const numColumns = parseInt(document.getElementById('newFieldTableColumns')?.value) || 3;
     const container = document.getElementById('tableColumnHeadersContainer');
     if (!container) return;
-
     let html = '';
     for (let i = 0; i < numColumns; i++) {
         html += `
-            <div class="form-group-wizard" style="margin-bottom: 12px;">
-                <label>Column ${i + 1}</label>
-                <input type="text" id="tableColHeader${i}" placeholder="e.g., Company Name" 
-                       class="form-control">
-            </div>
-        `;
+        <div class="form-group-wizard" style="margin-bottom: 12px;">
+            <label>Column ${i + 1}</label>
+            <input type="text" id="tableColHeader${i}" placeholder="e.g., Company Name" 
+                   class="form-control">
+        </div>
+    `;
     }
     container.innerHTML = html;
 }
 
-function updateAdvTableColumnsPreview() {
-    const numColumns = parseInt(document.getElementById('newFieldAdvTableColumns')?.value) || 3;
-    console.log('Advanced table will have', numColumns, 'columns');
+
+// ===================================================================
+// ADVANCED TABLE - WIZARD FUNCTIONS
+// ===================================================================
+function openAdvancedTableWizard() {
+    console.log('🎯 Opening advanced table wizard');
+
+    // Generate unique field ID if not already set
+    if (!advancedTableBuilder.currentFieldId) {
+        advancedTableBuilder.currentFieldId = `field_${fieldIdCounter++}`;
+    }
+
+    const fieldId = advancedTableBuilder.currentFieldId;
+
+    console.log('Field ID:', fieldId);
+    console.log('Section ID:', advancedTableBuilder.currentSectionId);
+
+    // Create and show advanced table wizard modal
+    const modalHTML = createAdvancedTableWizardHTML(fieldId);
+
+    // Remove existing wizard modal if any
+    const existingWizard = document.querySelector('[id^="advTableWizard-"]');
+    if (existingWizard) {
+        existingWizard.remove();
+    }
+
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+    // Initialize Step 1
+    setTimeout(() => {
+        renderAdvTableStep1(fieldId);
+    }, 100);
+}
+
+
+function createAdvancedTableWizardHTML(fieldId) {
+    return `
+<div id="advTableWizard-${fieldId}" class="modal-overlay active">
+<div class="modal-container" style="max-width: 1100px; width: 95%;">
+<div class="modal-header">
+<div>
+<h2>🎯 Advanced Table Builder</h2>
+<p style="margin: 4px 0 0 0; color: #6b7280; font-size: 14px;">
+<span id="advTable-step-indicator-${fieldId}">Step 1 of 3: Define Columns</span>
+</p>
+</div>
+<button class="modal-close" onclick="closeAdvancedTableWizard('${fieldId}')">×</button>
+</div>
+        <!-- Progress Steps -->
+        <div style="padding: 20px 32px 0 32px;">
+            <div class="wizard-progress" id="advTable-progress-${fieldId}">
+                <div class="progress-step active" data-step="1">
+                    <div class="progress-step-circle">1</div>
+                    <div class="progress-step-label">Define Columns</div>
+                </div>
+                <div class="progress-line"></div>
+                <div class="progress-step" data-step="2">
+                    <div class="progress-step-circle">2</div>
+                    <div class="progress-step-label">Build Table</div>
+                </div>
+                <div class="progress-line"></div>
+                <div class="progress-step" data-step="3">
+                    <div class="progress-step-circle">3</div>
+                    <div class="progress-step-label">Preview</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal-body" style="max-height: 65vh; overflow-y: auto; padding: 24px 32px;">
+            <!-- Step 1: Define Columns -->
+            <div id="advTable-${fieldId}-step-1" class="wizard-step active">
+                <!-- Content will be generated by renderAdvTableStep1 -->
+            </div>
+
+            <!-- Step 2: Build Table Structure -->
+            <div id="advTable-${fieldId}-step-2" class="wizard-step" style="display: none;">
+                <!-- Content will be generated by renderAdvTableStep2 -->
+            </div>
+
+            <!-- Step 3: Preview -->
+            <div id="advTable-${fieldId}-step-3" class="wizard-step" style="display: none;">
+                <!-- Content will be generated by renderAdvTableStep3 -->
+            </div>
+        </div>
+
+        <div class="modal-actions">
+            <button type="button" 
+                    id="advTable-${fieldId}-btn-back"
+                    class="btn btn-ghost" 
+                    onclick="advTablePrevStep('${fieldId}')"
+                    style="display: none;">
+                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="15 18 9 12 15 6"></polyline>
+                </svg>
+                Back
+            </button>
+            <div style="flex: 1;"></div>
+            <button type="button" class="btn btn-ghost" onclick="closeAdvancedTableWizard('${fieldId}')">
+                Cancel
+            </button>
+            <button type="button" 
+                    id="advTable-${fieldId}-btn-next"
+                    class="btn btn-primary" 
+                    onclick="advTableNextStep('${fieldId}')">
+                Next
+                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+            </button>
+            <button type="button" 
+                    id="advTable-${fieldId}-btn-save"
+                    class="btn btn-primary" 
+                    onclick="saveAdvancedTableField('${fieldId}')"
+                    style="display: none;">
+                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                Add Table to Form
+            </button>
+        </div>
+    </div>
+</div>`;
+}
+
+function renderAdvTableStep1(fieldId) {
+    const container = document.getElementById(`advTable-${fieldId}-step-1`);
+    if (!container) return;
+
+    container.innerHTML = `
+    <!-- ── BASIC FIELD PROPERTIES ── first section ─────────────────────── -->
+    <div style="margin-bottom: 32px; padding-bottom: 24px; border-bottom: 1px solid #e5e7eb;">
+        <h3 style="margin: 0 0 16px 0; color: #1e40af;">1. Table Information</h3>
+        
+        <div class="form-group-wizard">
+            <label>Table Label <span class="required-mark">*</span></label>
+            <input type="text" id="advTable-${fieldId}-label" class="form-control" 
+                   value="${escapeHTML(advancedTableBuilder.fieldLabel || '')}"
+                   placeholder="e.g. Schedule of Shareholdings" required>
+        </div>
+
+        <div class="form-group-wizard">
+            <label>Help Text / Instructions (optional)</label>
+            <textarea id="advTable-${fieldId}-help" rows="2" class="form-control"
+                      placeholder="Additional guidance for the employee...">${escapeHTML(advancedTableBuilder.fieldHelpText || '')}</textarea>
+        </div>
+
+        <div class="form-group-wizard">
+            <label class="checkbox-label">
+                <input type="checkbox" id="advTable-${fieldId}-required" 
+                       ${advancedTableBuilder.fieldRequired ? 'checked' : ''}>
+                This table is required
+            </label>
+        </div>
+    </div>
+
+    <!-- ── Existing columns / rows configuration ───────────────────────── -->
+    <h3 style="margin: 0 0 16px 0; color: #1e40af;">2. Table Structure</h3>
+    
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px;">
+        <div class="form-group-wizard">
+            <label>Number of Columns</label>
+            <input type="number" id="advTable-${fieldId}-columns-count" value="${advancedTableBuilder.gridColumns || 3}" min="1" max="10">
+        </div>
+        <div class="form-group-wizard">
+            <label>Number of Data Rows</label>
+            <input type="number" id="advTable-${fieldId}-rows-count" value="${advancedTableBuilder.rows || 4}" min="1" max="30">
+        </div>
+    </div>
+
+    <div class="form-group-wizard">
+        <label>Define Columns</label>
+        <div id="advTable-${fieldId}-columns-list" class="columns-list"></div>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="addAdvTableColumn('${fieldId}')">
+            + Add Column
+        </button>
+    </div>
+
+    <div class="info-box" style="margin-top: 24px;">
+        <strong>Next steps:</strong> After defining columns → arrange layout & merge cells
+    </div>
+    `;
+
+    // Re-populate columns if any already exist
+    advancedTableBuilder.columns.forEach(() => addAdvTableColumn(fieldId));
 }
 
 let advTableColumnCounter = 0;
 
-function addAdvTableColumnField() {
-    const container = document.getElementById('advTableColumnsContainer');
+function addAdvTableColumn(fieldId) {
+    const container = document.getElementById(`advTable-${fieldId}-columns-list`);
     if (!container) return;
-
-    const columnId = `advTableCol${advTableColumnCounter++}`;
+    const colId = `advTableCol-${advTableColumnCounter++}`;
     const columnNumber = container.children.length + 1;
 
     const colDiv = document.createElement('div');
     colDiv.className = 'adv-table-column-item';
-    colDiv.dataset.columnId = columnId;
-    colDiv.style.cssText = 'display: flex; align-items: center; gap: 8px; margin-bottom: 8px; padding: 8px; background: #f9fafb; border-radius: 6px;';
+    colDiv.dataset.columnId = colId;
+    colDiv.style.cssText = 'display: flex; align-items: center; gap: 8px; padding: 8px; background: #f9fafb; border-radius: 6px;';
 
     colDiv.innerHTML = `
-        <span style="min-width: 24px; font-weight: 600; color: #6b7280;">${columnNumber}.</span>
-        <input type="text" placeholder="Column name" class="form-control adv-table-col-name" 
-               style="flex: 1;" data-column-id="${columnId}">
-        <select class="form-control adv-table-col-type" style="width: 120px;" data-column-id="${columnId}">
-            <option value="text">Text</option>
-            <option value="number">Number</option>
-            <option value="date">Date</option>
-            <option value="email">Email</option>
-        </select>
-        <button type="button" class="btn-icon-delete-small" onclick="removeAdvTableColumnField(this)"
-                style="padding: 4px 8px; background: #ef4444; color: white; border: none; border-radius: 4px; cursor: pointer;">
-            ×
-        </button>
-    `;
+    <span style="min-width: 32px; height: 32px; background: #e0e7ff; color: #4f46e5; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 14px; flex-shrink: 0;">${columnNumber}</span>
+    <input type="text" placeholder="Column name (e.g., Account Number)" class="form-control adv-table-col-name" 
+           style="flex: 1;" data-column-id="${colId}">
+    <select class="form-control adv-table-col-type" style="width: 140px; flex-shrink: 0;" data-column-id="${colId}">
+        <option value="text">Text</option>
+        <option value="number">Number</option>
+        <option value="date">Date</option>
+        <option value="email">Email</option>
+    </select>
+    <button type="button" 
+            class="btn-icon-delete-small" 
+            onclick="removeAdvTableColumn('${fieldId}', this)"
+            style="flex-shrink: 0; padding: 4px 8px; background: #ef4444; color: white; border: none; border-radius: 4px; cursor: pointer;">
+        ×
+    </button>
+`;
 
     container.appendChild(colDiv);
+    updateAdvColumnNumbers(fieldId);
 }
 
-function removeAdvTableColumnField(button) {
-    const colDiv = button.closest('.adv-table-column-item');
-    if (colDiv) colDiv.remove();
+function removeAdvTableColumn(fieldId, button) {
+    const container = document.getElementById(`advTable-${fieldId}-columns-list`);
+    if (!container || container.children.length <= 1) {
+        alert('⚠️ At least one column is required');
+        return;
+    }
+    button.closest('.adv-table-column-item').remove();
+    updateAdvColumnNumbers(fieldId);
+}
 
-    const container = document.getElementById('advTableColumnsContainer');
+function updateAdvColumnNumbers(fieldId) {
+    const container = document.getElementById(`advTable-${fieldId}-columns-list`);
     if (!container) return;
-
-    Array.from(container.children).forEach((child, index) => {
-        const numberSpan = child.querySelector('span');
-        if (numberSpan) numberSpan.textContent = `${index + 1}.`;
+    Array.from(container.children).forEach((item, index) => {
+        const numberSpan = item.querySelector('span');
+        if (numberSpan) numberSpan.textContent = index + 1;
     });
 }
 
+function advTableNextStep(fieldId) {
+    const currentStep = advancedTableBuilder.step;
+    if (currentStep === 1) {
+        if (!validateAdvTableStep1(fieldId)) return;
+        advancedTableBuilder.step = 2;
+        renderAdvTableStep2(fieldId);
+    } else if (currentStep === 2) {
+        if (!validateAdvTableStep2(fieldId)) return;
+        advancedTableBuilder.step = 3;
+        renderAdvTableStep3(fieldId);
+    }
+
+    updateAdvTableStepUI(fieldId);
+}
+
+function advTablePrevStep(fieldId) {
+    if (advancedTableBuilder.step > 1) {
+        advancedTableBuilder.step--;
+        updateAdvTableStepUI(fieldId);
+    }
+}
+
+function validateAdvTableStep1(fieldId) {
+    // ✅ FIX: Update field label from Step 1 input
+    const labelInput = document.getElementById(`advTable-${fieldId}-label`);
+    const label = labelInput?.value.trim() || '';
+
+    if (!label) {
+        alert('⚠️ Please enter a table label');
+        labelInput?.focus();
+        return false;
+    }
+
+    advancedTableBuilder.fieldLabel = label;
+
+    // Update help text and required status
+    const helpInput = document.getElementById(`advTable-${fieldId}-help`);
+    const requiredInput = document.getElementById(`advTable-${fieldId}-required`);
+
+    advancedTableBuilder.fieldHelpText = helpInput?.value.trim() || '';
+    advancedTableBuilder.fieldRequired = requiredInput?.checked || false;
+
+    const container = document.getElementById(`advTable-${fieldId}-columns-list`);
+    if (!container || container.children.length === 0) {
+        alert('⚠️ Please add at least one column');
+        return false;
+    }
+    advancedTableBuilder.columns = [];
+    const columnItems = container.querySelectorAll('.adv-table-column-item');
+
+    for (let item of columnItems) {
+        const nameInput = item.querySelector('.adv-table-col-name');
+        const typeSelect = item.querySelector('.adv-table-col-type');
+        const name = nameInput ? nameInput.value.trim() : '';
+
+        if (!name) {
+            alert('⚠️ All columns must have names');
+            if (nameInput) nameInput.focus();
+            return false;
+        }
+
+        advancedTableBuilder.columns.push({
+            id: nameInput.dataset.columnId,
+            name: name,
+            type: typeSelect ? typeSelect.value : 'text'
+        });
+    }
+
+    const rowsInput = document.getElementById(`advTable-${fieldId}-rows-count`);
+    advancedTableBuilder.rows = rowsInput ? parseInt(rowsInput.value) || 4 : 4;
+
+    const colsInput = document.getElementById(`advTable-${fieldId}-columns-count`);
+    advancedTableBuilder.gridColumns = colsInput ? parseInt(colsInput.value) || 3 : advancedTableBuilder.columns.length;
+
+    return true;
+}
+
+function validateAdvTableStep2(fieldId) {
+    const hasAssignments = advancedTableBuilder.gridCells.some(cell => cell.columnId);
+    if (!hasAssignments) {
+        return confirm(
+            'You haven\'t assigned any columns to cells. Continue anyway?\n\n' +
+            'The table will have a basic structure without merged cells.'
+        );
+    }
+
+    return true;
+}
+
+function renderAdvTableStep2(fieldId) {
+    const container = document.getElementById(`advTable-${fieldId}-step-2`);
+    if (!container) return;
+    container.innerHTML = `
+    <div class="info-box" style="margin-bottom: 20px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 16px; display: flex; gap: 12px;">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="16" x2="12" y2="12"></line>
+            <line x1="12" y1="8" x2="12.01" y2="8"></line>
+        </svg>
+        <div>
+            <strong style="color: #1e40af;">Step 2: Build Your Table Structure</strong>
+            <p style="margin: 4px 0 0 0; color: #1e40af;">Select cells to merge, then assign column names to merged regions.</p>
+        </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="table-toolbar" style="display: flex; gap: 8px; margin-bottom: 20px; padding: 16px; background: #f9fafb; border-radius: 8px; flex-wrap: wrap;">
+        <button type="button" onclick="mergeSelectedCells('${fieldId}')" style="display: flex; align-items: center; gap: 8px; padding: 10px 16px; background: white; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px; font-weight: 500; cursor: pointer;">
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+                <line x1="12" y1="3" x2="12" y2="21"></line>
+                <line x1="3" y1="12" x2="21" y2="12"></line>
+            </svg>
+            Merge Selected
+        </button>
+        <button type="button" onclick="assignColumnToMerge('${fieldId}')" style="display: flex; align-items: center; gap: 8px; padding: 10px 16px; background: white; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px; font-weight: 500; cursor: pointer;">
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+            </svg>
+            Assign Column
+        </button>
+        <button type="button" onclick="clearTableSelection('${fieldId}')" style="display: flex; align-items: center; gap: 8px; padding: 10px 16px; background: white; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px; font-weight: 500; cursor: pointer;">
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+            Clear Selection
+        </button>
+        <button type="button" onclick="resetTableStructure('${fieldId}')" style="display: flex; align-items: center; gap: 8px; padding: 10px 16px; background: white; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px; font-weight: 500; cursor: pointer;">
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path>
+                <path d="M21 3v5h-5"></path>
+            </svg>
+            Reset
+        </button>
+        <div style="flex: 1;"></div>
+        <span style="color: #6b7280; font-size: 13px; align-self: center;">
+            Click cells to select • Shift+Click for range
+        </span>
+    </div>
+
+    <!-- Table Grid -->
+    <div id="advTable-${fieldId}-table-grid" class="advanced-table-grid" style="display: grid; gap: 2px; background: #e5e7eb; border: 2px solid #d1d5db; border-radius: 8px; padding: 2px; margin-bottom: 20px;">
+        <!-- Grid will be rendered here -->
+    </div>
+
+    <!-- Column Assignment Panel -->
+    <div id="advTable-${fieldId}-assignment-panel" class="assignment-panel" style="display: none; background: #f9fafb; border: 1px solid #d1d5db; border-radius: 8px; padding: 16px; margin-top: 16px;">
+        <h4 style="margin: 0 0 12px 0;">Assign Column to Merged Cells</h4>
+        <select id="advTable-${fieldId}-column-select" class="form-control" style="margin-bottom: 12px;">
+            <option value="">Select a column...</option>
+        </select>
+        <div style="display: flex; gap: 8px;">
+            <button type="button" class="btn btn-primary" onclick="confirmColumnAssignment('${fieldId}')">
+                Assign
+            </button>
+            <button type="button" class="btn btn-ghost" onclick="cancelColumnAssignment('${fieldId}')">
+                Cancel
+            </button>
+        </div>
+    </div>
+`;
+
+    initializeTableGrid(fieldId);
+    updateColumnSelector(fieldId);
+}
+
+function initializeTableGrid(fieldId) {
+    const cols = advancedTableBuilder.gridColumns;
+    const rows = advancedTableBuilder.rows + 1; // +1 for header row
+    advancedTableBuilder.gridCells = [];
+
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            advancedTableBuilder.gridCells.push({
+                row: r,
+                col: c,
+                rowspan: 1,
+                colspan: 1,
+                columnId: null,
+                columnName: '',
+                isHeader: r === 0,
+                isMerged: false,
+                mergeRoot: null,
+                hidden: false
+            });
+        }
+    }
+
+    renderTableGrid(fieldId);
+}
+
+function renderTableGrid(fieldId) {
+    const grid = document.getElementById(`advTable-${fieldId}-table-grid`);
+    if (!grid) return;
+    grid.innerHTML = '';
+
+    const cols = advancedTableBuilder.gridColumns;
+    grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+
+    advancedTableBuilder.gridCells.forEach(cell => {
+        if (cell.hidden) return;
+
+        const cellDiv = document.createElement('div');
+        cellDiv.className = 'table-grid-cell';
+        cellDiv.dataset.row = cell.row;
+        cellDiv.dataset.col = cell.col;
+
+        cellDiv.style.cssText = `
+        background: ${cell.isHeader ? '#f3f4f6' : 'white'};
+        border: 1px solid #d1d5db;
+        padding: 16px;
+        text-align: center;
+        font-size: 13px;
+        color: #6b7280;
+        cursor: pointer;
+        transition: all 0.2s;
+    `;
+
+        if (cell.rowspan > 1) cellDiv.style.gridRowEnd = `span ${cell.rowspan}`;
+        if (cell.colspan > 1) cellDiv.style.gridColumnEnd = `span ${cell.colspan}`;
+
+        if (cell.columnName) {
+            cellDiv.classList.add('assigned');
+            cellDiv.style.background = '#dcfce7';
+            cellDiv.style.borderColor = '#22c55e';
+            cellDiv.innerHTML = `
+            <div style="font-weight: 600; color: #059669;">${escapeHTML(cell.columnName)}</div>
+            <div style="font-size: 11px; color: #6b7280; margin-top: 2px;">
+                ${cell.rowspan > 1 || cell.colspan > 1 ?
+                    `Spans ${cell.rowspan}×${cell.colspan}` :
+                    'Single cell'}
+            </div>
+        `;
+        } else {
+            cellDiv.textContent = `R${cell.row + 1},C${cell.col + 1}`;
+            if (cell.isHeader) {
+                cellDiv.style.fontWeight = '600';
+                cellDiv.style.color = '#374151';
+            }
+        }
+
+        if (cell.isMerged) {
+            cellDiv.classList.add('merged');
+        }
+
+        cellDiv.onclick = (e) => selectTableCell(e, cell, fieldId);
+        grid.appendChild(cellDiv);
+    });
+}
+
+function selectTableCell(event, cell, fieldId) {
+    const cellDiv = event.currentTarget;
+    const isSelected = advancedTableBuilder.selectedCells.some(
+        c => c.row === cell.row && c.col === cell.col
+    );
+    if (!event.shiftKey) {
+        document.querySelectorAll(`#advTable-${fieldId}-table-grid .table-grid-cell.selected`)
+            .forEach(el => {
+                el.classList.remove('selected');
+                el.style.background = el.dataset.row === '0' ? '#f3f4f6' : 'white';
+            });
+        advancedTableBuilder.selectedCells = [];
+    }
+
+    if (isSelected) {
+        advancedTableBuilder.selectedCells = advancedTableBuilder.selectedCells.filter(
+            c => !(c.row === cell.row && c.col === cell.col)
+        );
+        cellDiv.classList.remove('selected');
+        cellDiv.style.background = cell.isHeader ? '#f3f4f6' : 'white';
+    } else {
+        advancedTableBuilder.selectedCells.push({
+            row: cell.row,
+            col: cell.col
+        });
+        cellDiv.classList.add('selected');
+        cellDiv.style.background = '#dbeafe';
+        cellDiv.style.borderColor = '#3b82f6';
+    }
+}
+
+function mergeSelectedCells(fieldId) {
+    const selected = advancedTableBuilder.selectedCells;
+
+    if (selected.length < 2) {
+        showNotification('Select at least 2 cells to merge', 'error');
+        return;
+    }
+
+    const alreadyMerged = selected.some(s => {
+        const cell = advancedTableBuilder.gridCells.find(
+            c => c.row === s.row && c.col === s.col
+        );
+        return cell && (cell.isMerged || cell.hidden);
+    });
+
+    if (alreadyMerged) {
+        showNotification('Cannot merge: some cells are already merged', 'error');
+        return;
+    }
+
+    const rows = selected.map(c => c.row);
+    const cols = selected.map(c => c.col);
+    const minRow = Math.min(...rows);
+    const maxRow = Math.max(...rows);
+    const minCol = Math.min(...cols);
+    const maxCol = Math.max(...cols);
+
+    const rowspan = maxRow - minRow + 1;
+    const colspan = maxCol - minCol + 1;
+
+    if (selected.length !== rowspan * colspan) {
+        showNotification('Please select a rectangular region', 'error');
+        return;
+    }
+
+    const rootCell = advancedTableBuilder.gridCells.find(
+        c => c.row === minRow && c.col === minCol
+    );
+
+    if (!rootCell) return;
+
+    rootCell.isMerged = true;
+    rootCell.rowspan = rowspan;
+    rootCell.colspan = colspan;
+
+    advancedTableBuilder.gridCells.forEach(cell => {
+        if (cell.row >= minRow && cell.row <= maxRow &&
+            cell.col >= minCol && cell.col <= maxCol &&
+            !(cell.row === minRow && cell.col === minCol)) {
+            cell.hidden = true;
+            cell.mergeRoot = rootCell;
+        }
+    });
+
+    showNotification(`Merged ${selected.length} cells`, 'success');
+    clearTableSelection(fieldId);
+    renderTableGrid(fieldId);
+}
+
+function assignColumnToMerge(fieldId) {
+    const selected = advancedTableBuilder.selectedCells;
+    if (selected.length === 0) {
+        alert('⚠️ Please select cell(s) first');
+        return;
+    }
+
+    const panel = document.getElementById(`advTable-${fieldId}-assignment-panel`);
+    if (panel) {
+        panel.style.display = 'block';
+        panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+}
+
+function updateColumnSelector(fieldId) {
+    const select = document.getElementById(`advTable-${fieldId}-column-select`);
+    if (!select) return;
+
+    select.innerHTML = '<option value="">Select a column...</option>';
+    advancedTableBuilder.columns.forEach(col => {
+        const option = document.createElement('option');
+        option.value = col.id;
+        option.textContent = col.name;
+        select.appendChild(option);
+    });
+}
+
+function confirmColumnAssignment(fieldId) {
+    const select = document.getElementById(`advTable-${fieldId}-column-select`);
+    const columnId = select ? select.value : '';
+    if (!columnId) {
+        alert('⚠️ Please select a column');
+        return;
+    }
+
+    const column = advancedTableBuilder.columns.find(c => c.id === columnId);
+    if (!column) return;
+
+    const selected = advancedTableBuilder.selectedCells;
+
+    const rows = selected.map(c => c.row);
+    const cols = selected.map(c => c.col);
+    const minRow = Math.min(...rows);
+    const minCol = Math.min(...cols);
+
+    const rootCell = advancedTableBuilder.gridCells.find(
+        c => c.row === minRow && c.col === minCol && !c.hidden
+    );
+
+    if (rootCell) {
+        rootCell.columnId = column.id;
+        rootCell.columnName = column.name;
+
+        alert(`✅ Assigned "${column.name}"`);
+    }
+
+    cancelColumnAssignment(fieldId);
+    clearTableSelection(fieldId);
+    renderTableGrid(fieldId);
+}
+
+function cancelColumnAssignment(fieldId) {
+    const panel = document.getElementById(`advTable-${fieldId}-assignment-panel`);
+    if (panel) panel.style.display = 'none';
+}
+
+function clearTableSelection(fieldId) {
+    document.querySelectorAll(`#advTable-${fieldId}-table-grid .table-grid-cell.selected`)
+        .forEach(el => {
+            el.classList.remove('selected');
+            const row = el.dataset.row;
+            if (!el.classList.contains('assigned')) {
+                el.style.background = row === '0' ? '#f3f4f6' : 'white';
+                el.style.borderColor = '#d1d5db';
+            }
+        });
+    advancedTableBuilder.selectedCells = [];
+}
+
+function resetTableStructure(fieldId) {
+    if (!confirm('Reset all merges and assignments? This cannot be undone.')) return;
+    initializeTableGrid(fieldId);
+    alert('✅ Table structure reset');
+}
+
+function renderAdvTableStep3(fieldId) {
+    const container = document.getElementById(`advTable-${fieldId}-step-3`);
+    if (!container) return;
+    container.innerHTML = `
+    <div class="info-box" style="margin-bottom: 20px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 16px; display: flex; gap: 12px;">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="9 11 12 14 22 4"></polyline>
+        </svg>
+        <div>
+            <strong style="color: #1e40af;">Step 3: Review Your Table</strong>
+            <p style="margin: 4px 0 0 0; color: #1e40af;">This is how your table will appear in the form. Make sure everything looks correct.</p>
+        </div>
+    </div>
+
+    <div id="advTable-${fieldId}-table-preview" class="table-preview-container">
+        <!-- Preview will be rendered here -->
+    </div>
+`;
+
+    generateTablePreview(fieldId);
+}
+
+function generateTablePreview(fieldId) {
+    const container = document.getElementById(`advTable-${fieldId}-table-preview`);
+    if (!container) return;
+    const label = advancedTableBuilder.fieldLabel || 'Advanced Table';
+
+    let html = `
+    <div style="margin-bottom: 20px;">
+        <label style="display: block; font-weight: 600; margin-bottom: 8px; font-size: 15px;">
+            ${escapeHTML(label)}
+        </label>
+    </div>
+    <div style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse; border: 2px solid #d1d5db;">
+`;
+
+    const cols = advancedTableBuilder.gridColumns;
+    const rows = advancedTableBuilder.rows + 1;
+
+    for (let r = 0; r < rows; r++) {
+        html += '<tr>';
+
+        for (let c = 0; c < cols; c++) {
+            const cell = advancedTableBuilder.gridCells.find(
+                cell => cell.row === r && cell.col === c && !cell.hidden
+            );
+
+            if (!cell) continue;
+
+            const isHeader = cell.isHeader;
+            const tag = isHeader ? 'th' : 'td';
+            const bgColor = isHeader ? '#f3f4f6' : (cell.columnName ? '#f0fdf4' : 'white');
+            const textColor = isHeader ? '#111827' : (cell.columnName ? '#065f46' : '#6b7280');
+
+            html += `<${tag} 
+            style="
+                border: 1px solid #d1d5db;
+                padding: 12px;
+                text-align: left;
+                background: ${bgColor};
+                color: ${textColor};
+                font-weight: ${isHeader ? '600' : '400'};
+            "
+            ${cell.rowspan > 1 ? `rowspan="${cell.rowspan}"` : ''}
+            ${cell.colspan > 1 ? `colspan="${cell.colspan}"` : ''}
+        >`;
+
+            if (isHeader && !cell.columnName) {
+                html += escapeHTML(advancedTableBuilder.columns[c]?.name || `Column ${c + 1}`);
+            } else if (cell.columnName) {
+                html += escapeHTML(cell.columnName);
+            } else {
+                html += `<span style="color: #9ca3af; font-style: italic;">Data will be entered here</span>`;
+            }
+
+            html += `</${tag}>`;
+        }
+
+        html += '</tr>';
+    }
+
+    html += '</table></div>';
+    container.innerHTML = html;
+}
+
+function updateAdvTableStepUI(fieldId) {
+    const step = advancedTableBuilder.step;
+    const progressSteps = document.querySelectorAll(`#advTable-progress-${fieldId} .progress-step`);
+    progressSteps.forEach((el, index) => {
+        el.classList.toggle('active', index + 1 === step);
+        el.classList.toggle('completed', index + 1 < step);
+    });
+
+    const stepTexts = [
+        'Step 1 of 3: Define Columns',
+        'Step 2 of 3: Build Table Structure',
+        'Step 3 of 3: Preview & Confirm'
+    ];
+    const indicator = document.getElementById(`advTable-step-indicator-${fieldId}`);
+    if (indicator) indicator.textContent = stepTexts[step - 1];
+
+    document.getElementById(`advTable-${fieldId}-step-1`).style.display = step === 1 ? 'block' : 'none';
+    document.getElementById(`advTable-${fieldId}-step-2`).style.display = step === 2 ? 'block' : 'none';
+    document.getElementById(`advTable-${fieldId}-step-3`).style.display = step === 3 ? 'block' : 'none';
+
+    const btnBack = document.getElementById(`advTable-${fieldId}-btn-back`);
+    const btnNext = document.getElementById(`advTable-${fieldId}-btn-next`);
+    const btnSave = document.getElementById(`advTable-${fieldId}-btn-save`);
+
+    if (btnBack) btnBack.style.display = step > 1 ? 'flex' : 'none';
+    if (btnNext) btnNext.style.display = step < 3 ? 'flex' : 'none';
+    if (btnSave) btnSave.style.display = step === 3 ? 'flex' : 'none';
+}
+
+function saveAdvancedTableField(fieldId) {
+    console.log('💾 Saving advanced table field:', fieldId);
+
+    const section = sections.find(s => s.sectionId === advancedTableBuilder.currentSectionId);
+    if (!section) {
+        console.error('❌ Section not found:', advancedTableBuilder.currentSectionId);
+        alert('⚠️ Error: Section not found');
+        return;
+    }
+
+    // ✅ FIX: Create field with ALL advanced table properties
+    const field = {
+        fieldId: fieldId,
+        fieldLabel: advancedTableBuilder.fieldLabel,
+        fieldType: 'advancedTable',
+        required: advancedTableBuilder.fieldRequired,
+        order: section.fields.length + 1,
+        helpText: advancedTableBuilder.fieldHelpText,
+
+        // ✅ CRITICAL: Include all advanced table data
+        columns: advancedTableBuilder.columns,
+        rows: advancedTableBuilder.rows + 1,
+        gridColumns: advancedTableBuilder.gridColumns,
+        cells: advancedTableBuilder.gridCells.filter(c => !c.hidden)
+    };
+
+    console.log('✅ Advanced table field created:', field);
+
+    section.fields.push(field);
+    renderFieldInSection(advancedTableBuilder.currentSectionId, field);
+    updateFieldCount(advancedTableBuilder.currentSectionId);
+
+    closeAdvancedTableWizard(fieldId);
+    alert('✅ Advanced table added successfully!');
+}
+
+
+function closeAdvancedTableWizard(fieldId) {
+    const modal = document.getElementById(`advTableWizard-${fieldId}`);
+    if (modal) modal.remove();
+    // Reset builder
+    advancedTableBuilder.currentFieldId = null;
+    advancedTableBuilder.currentSectionId = null;
+    advancedTableBuilder.step = 1;
+    advancedTableBuilder.columns = [];
+    advancedTableBuilder.gridCells = [];
+    advancedTableBuilder.selectedCells = [];
+    advancedTableBuilder.fieldLabel = '';
+    advancedTableBuilder.fieldHelpText = '';
+    advancedTableBuilder.fieldRequired = false;
+}
+
+
+// ===================================================================
+// MAIN ADD CONFIGURED FIELD FUNCTION
+// ===================================================================
 function addConfiguredField() {
     if (!currentAddFieldSection || !selectedFieldType) return;
-
     const section = sections.find(s => s.sectionId === currentAddFieldSection);
     if (!section) return;
 
@@ -906,18 +1742,6 @@ function addConfiguredField() {
             validation: {}
         };
 
-        if (selectedFieldType === 'table') {
-            field.tableConfig = {
-                columns: [],
-                minRows: 1,
-                allowAddRows: false
-            };
-        } else if (selectedFieldType === 'advancedTable') {
-            field.columns = [];
-            field.rows = 4;
-            field.gridColumns = 3;
-        }
-
         section.fields.push(field);
     }
 
@@ -955,6 +1779,7 @@ function addConfiguredField() {
         field.helpText = document.getElementById('newFieldParagraphText')?.value || '';
     }
 
+    // ✅ FIX: SIMPLE TABLE - Collect and store columns properly
     if (selectedFieldType === 'table') {
         const numColumns = parseInt(document.getElementById('newFieldTableColumns')?.value) || 0;
 
@@ -970,209 +1795,20 @@ function addConfiguredField() {
             columns.push(headerValue);
         }
 
+        // ✅ CRITICAL: Store tableConfig with columns
         field.tableConfig = {
             columns: columns,
             minRows: parseInt(document.getElementById('newFieldTableMinRows')?.value) || 1,
             allowAddRows: document.getElementById('newFieldTableAllowAddRows')?.checked || false
         };
 
-        console.log('✅ Simple table configured:', field.tableConfig);
-    }
-
-    if (selectedFieldType === 'advancedTable') {
-        const container = document.getElementById('advTableColumnsContainer');
-        const columnInputs = container?.querySelectorAll('.adv-table-col-name') || [];
-        const columnTypeSelects = container?.querySelectorAll('.adv-table-col-type') || [];
-
-        if (columnInputs.length === 0) {
-            alert('⚠️ Advanced table must have at least one column defined');
-            return;
-        }
-
-        const columns = [];
-        columnInputs.forEach((input, idx) => {
-            const colName = input.value.trim() || `Column ${idx + 1}`;
-            const colType = columnTypeSelects[idx]?.value || 'text';
-            columns.push({ name: colName, type: colType });
-        });
-
-        field.columns = columns;
-        field.rows = parseInt(document.getElementById('newFieldAdvTableRows')?.value) || 4;
-        field.gridColumns = parseInt(document.getElementById('newFieldAdvTableGridColumns')?.value) || 3;
-
-        console.log('✅ Advanced table configured:', { columns: field.columns, rows: field.rows });
+        console.log('✅ Simple table configured with columns:', field.tableConfig);
     }
 
     renderFieldInSection(currentAddFieldSection, field);
 
     closeAddFieldModal();
     currentEditingField = null;
-}
-
-// ============================================================================
-// SIMPLE TABLE BUILDER - SEPARATE MODAL WITH SECTION ID TRACKING
-// ============================================================================
-
-function openTableBuilder(sectionId) {
-    if (!sectionId) {
-        console.error('❌ openTableBuilder called without section ID');
-        alert('⚠️ Error: No section specified. Please try again.');
-        return;
-    }
-
-    console.log('✅ Opening table builder for section:', sectionId);
-
-    // Store section ID in multiple places for reliability
-    currentAddFieldSection = sectionId;
-    window.currentTableSectionId = sectionId;
-
-    // Create modal dynamically with section ID embedded
-    const modalHTML = `
-    <div class="modal-overlay active" id="tableBuilderModal">
-        <div class="modal-container table-builder-container">
-            <div class="modal-header">
-                <h2>🏗️ Build Table</h2>
-                <button class="modal-close" onclick="closeTableBuilder()">×</button>
-            </div>
-            <div class="modal-form">
-                <div class="form-group-wizard">
-                    <label>Table Label <span class="required-mark">*</span></label>
-                    <input type="text" id="tableLabel" placeholder="e.g., List of Directorships">
-                </div>
-                <div class="form-group-wizard">
-                    <label>Number of Columns <span class="required-mark">*</span></label>
-                    <input type="number" id="tableColumns" value="3" min="2" max="10" onchange="generateTableColumns()">
-                </div>
-                <div id="tableColumnsConfig">
-                    <!-- Column configurations will be inserted here -->
-                </div>
-                <div class="form-group-wizard">
-                    <label>Minimum Rows</label>
-                    <input type="number" id="tableMinRows" value="1" min="1" max="20">
-                    <small>Minimum number of rows employees must fill</small>
-                </div>
-                <div class="form-group-wizard">
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="tableAllowAddRows" checked>
-                        <span>Allow employees to add more rows</span>
-                    </label>
-                </div>
-                <div class="modal-actions">
-                    <button class="btn btn-ghost" onclick="closeTableBuilder()">Cancel</button>
-                    <button class="btn btn-primary" onclick="saveTableConfig()">Add Table</button>
-                </div>
-            </div>
-        </div>
-    </div>
-    `;
-
-    // Remove existing modal if any
-    const existingModal = document.getElementById('tableBuilderModal');
-    if (existingModal) {
-        existingModal.remove();
-    }
-
-    // Insert modal into DOM
-    document.body.insertAdjacentHTML('beforeend', modalHTML);
-
-    // Generate initial columns
-    setTimeout(() => {
-        generateTableColumns();
-    }, 100);
-}
-
-function closeTableBuilder() {
-    const modal = document.getElementById('tableBuilderModal');
-    if (modal) {
-        modal.remove();
-    }
-
-    // Clean up section ID storage
-    delete window.currentTableSectionId;
-    console.log('→ Table builder closed');
-}
-
-function generateTableColumns() {
-    const numColumns = parseInt(document.getElementById('tableColumns')?.value) || 3;
-    const container = document.getElementById('tableColumnsConfig');
-    if (!container) return;
-
-    let html = '<div class="table-columns-list">';
-    for (let i = 0; i < numColumns; i++) {
-        html += `
-            <div class="form-group-wizard">
-                <label>Column ${i + 1} Header <span class="required-mark">*</span></label>
-                <input type="text" id="colHeader${i}" placeholder="e.g., Company Name">
-            </div>
-        `;
-    }
-    html += '</div>';
-
-    container.innerHTML = html;
-}
-
-function saveTableConfig() {
-    // Get section ID from multiple fallback locations
-    const sectionId = window.currentTableSectionId || currentAddFieldSection;
-
-    console.log('💾 Attempting to save table config for section:', sectionId);
-
-    if (!sectionId) {
-        console.error('❌ No section ID available when saving table');
-        alert('⚠️ Error: No section selected. Please close and try adding the table again from within a section.');
-        return;
-    }
-
-    const section = sections.find(s => s.sectionId === sectionId);
-    if (!section) {
-        console.error('❌ Section not found:', sectionId);
-        alert('⚠️ Section not found. Please close and try again.');
-        return;
-    }
-
-    const label = document.getElementById('tableLabel')?.value.trim() || '';
-    if (!label) {
-        alert('⚠️ Please enter a table label');
-        document.getElementById('tableLabel')?.focus();
-        return;
-    }
-
-    const numColumns = parseInt(document.getElementById('tableColumns')?.value) || 0;
-    if (numColumns < 1) {
-        alert('⚠️ Table must have at least 1 column');
-        return;
-    }
-
-    const columns = [];
-    for (let i = 0; i < numColumns; i++) {
-        const input = document.getElementById(`colHeader${i}`);
-        const value = input?.value.trim() || `Column ${i + 1}`;
-        columns.push(value);
-    }
-
-    const field = {
-        fieldId: `field_${fieldIdCounter++}`,
-        fieldLabel: label,
-        fieldType: 'table',
-        required: false,
-        order: section.fields.length + 1,
-        tableConfig: {
-            columns,
-            minRows: Math.max(1, parseInt(document.getElementById('tableMinRows')?.value) || 1),
-            allowAddRows: !!document.getElementById('tableAllowAddRows')?.checked
-        }
-    };
-
-    console.log('✅ Successfully saving table to section:', sectionId, field);
-
-    section.fields.push(field);
-    renderFieldInSection(sectionId, field);
-
-    // Cleanup
-    delete window.currentTableSectionId;
-    closeTableBuilder();
-
-    alert('✅ Table added successfully!');
 }
 
 // ============================================================================
@@ -1183,7 +1819,6 @@ function generateFullPreview() {
     const templateName = document.getElementById('templateName')?.value || 'Untitled Template';
     const templateDesc = document.getElementById('templateDescription')?.value || 'No description';
     const dueDays = document.getElementById('defaultDueDays')?.value || '30';
-
     const previewNameEl = document.getElementById('previewTemplateName');
     const previewDescEl = document.getElementById('previewTemplateDescription');
     const previewDueEl = document.getElementById('previewDueDate');
@@ -1201,12 +1836,12 @@ function generateFullPreview() {
 
     sections.forEach((section, index) => {
         let sectionHtml = `
-            <div class="preview-section-full">
-                <div class="section-header-preview">
-                    <div class="section-number">${index + 1}</div>
-                    <h2>${escapeHTML(section.sectionTitle || 'Untitled Section')}</h2>
-                </div>
-        `;
+        <div class="preview-section-full">
+            <div class="section-header-preview">
+                <div class="section-number">${index + 1}</div>
+                <h2>${escapeHTML(section.sectionTitle || 'Untitled Section')}</h2>
+            </div>
+    `;
 
         if (section.disclaimer) {
             sectionHtml += `<p class="section-disclaimer-preview">ℹ️ ${escapeHTML(section.disclaimer)}</p>`;
@@ -1216,11 +1851,17 @@ function generateFullPreview() {
 
         section.fields.forEach(field => {
             sectionHtml += `
-                <div class="preview-field-full">
-                    <label>${escapeHTML(field.fieldLabel)}${field.required ? '<span class="required-mark">*</span>' : ''}</label>
-                    ${field.helpText ? `<small style="color: var(--color-text-muted);">${escapeHTML(field.helpText)}</small>` : ''}
-                </div>
-            `;
+    <div class="preview-field-full">
+        <label>
+            ${escapeHTML(field.fieldLabel)}
+            ${field.required ? '<span class="required-mark">*</span>' : ''}
+        </label>
+        ${field.helpText ? `<small>${escapeHTML(field.helpText)}</small>` : ''}
+        <div class="preview-field-render">
+            ${generateFieldPreview(field)}
+        </div>
+    </div>
+`;
         });
 
         sectionHtml += '</div></div>';
@@ -1240,7 +1881,41 @@ async function saveDraft() {
         Description: document.getElementById('templateDescription').value.trim(),
         IsPublished: false,
         Config: JSON.stringify({
-            sections: sections,
+            sections: sections.map(section => ({
+                sectionId: section.sectionId,
+                sectionTitle: section.sectionTitle,
+                sectionOrder: section.sectionOrder,
+                disclaimer: section.disclaimer,
+                fields: section.fields.map(field => {
+                    const baseField = {
+                        fieldId: field.fieldId,
+                        fieldLabel: field.fieldLabel,
+                        fieldType: field.fieldType,
+                        required: field.required,
+                        order: field.order,
+                        placeholder: field.placeholder || '',
+                        helpText: field.helpText || '',
+                        conditionalOn: field.conditionalOn,
+                        options: field.options || [],
+                        validation: field.validation || {}
+                    };
+
+                    // ✅ Add simple table data
+                    if (field.fieldType === 'table' && field.tableConfig) {
+                        baseField.tableConfig = field.tableConfig;
+                    }
+
+                    // ✅ Add advanced table data
+                    if (field.fieldType === 'advancedTable') {
+                        baseField.columns = field.columns || [];
+                        baseField.rows = field.rows || 0;
+                        baseField.gridColumns = field.gridColumns || 0;
+                        baseField.cells = field.cells || [];
+                    }
+
+                    return baseField;
+                })
+            })),
             defaultDueDays: parseInt(document.getElementById('defaultDueDays').value) || 30,
             reminders: {
                 sevenDays: document.getElementById('reminder7days').checked,
@@ -1249,6 +1924,8 @@ async function saveDraft() {
             employeeDetailsIncluded: true
         })
     };
+
+    console.log('📤 Sending template data:', JSON.stringify(templateData, null, 2));
 
     try {
         const response = await fetch('/Home/CreateTemplate', {
@@ -1279,7 +1956,6 @@ async function publishTemplate() {
         goToStep(1);
         return;
     }
-
     if (!validateStep2()) {
         goToStep(2);
         return;
@@ -1300,7 +1976,41 @@ async function publishTemplate() {
         Description: document.getElementById('templateDescription').value.trim(),
         IsPublished: true,
         Config: JSON.stringify({
-            sections: sections,
+            sections: sections.map(section => ({
+                sectionId: section.sectionId,
+                sectionTitle: section.sectionTitle,
+                sectionOrder: section.sectionOrder,
+                disclaimer: section.disclaimer,
+                fields: section.fields.map(field => {
+                    const baseField = {
+                        fieldId: field.fieldId,
+                        fieldLabel: field.fieldLabel,
+                        fieldType: field.fieldType,
+                        required: field.required,
+                        order: field.order,
+                        placeholder: field.placeholder || '',
+                        helpText: field.helpText || '',
+                        conditionalOn: field.conditionalOn,
+                        options: field.options || [],
+                        validation: field.validation || {}
+                    };
+
+                    // ✅ Add simple table data
+                    if (field.fieldType === 'table' && field.tableConfig) {
+                        baseField.tableConfig = field.tableConfig;
+                    }
+
+                    // ✅ Add advanced table data
+                    if (field.fieldType === 'advancedTable') {
+                        baseField.columns = field.columns || [];
+                        baseField.rows = field.rows || 0;
+                        baseField.gridColumns = field.gridColumns || 0;
+                        baseField.cells = field.cells || [];
+                    }
+
+                    return baseField;
+                })
+            })),
             defaultDueDays: parseInt(document.getElementById('defaultDueDays').value) || 30,
             reminders: {
                 sevenDays: document.getElementById('reminder7days').checked,
@@ -1312,6 +2022,8 @@ async function publishTemplate() {
             totalFields: sections.reduce((sum, s) => sum + s.fields.length, 0)
         })
     };
+
+    console.log('📤 Publishing template:', JSON.stringify(templateData, null, 2));
 
     try {
         const response = await fetch('/Home/CreateTemplate', {
@@ -1336,70 +2048,25 @@ async function publishTemplate() {
     }
 }
 
-
-async function updateDraft(templateId) {
-    if (!templateId) {
-        alert('⚠️ No template ID provided');
-        return { success: false };
+function getTableColumns(field) {
+    // Simple table
+    if (field.fieldType === 'table' && field.tableConfig?.columns) {
+        return field.tableConfig.columns.map(col => ({
+            name: col,
+            type: 'text'
+        }));
+    }
+    // Advanced table
+    if (field.fieldType === 'advancedTable' && Array.isArray(field.columns)) {
+        return field.columns.map(col => ({
+            name: col.name || col,
+            type: col.type || 'text'
+        }));
     }
 
-    const templateNameInput = document.getElementById('templateName');
-    const templateDescInput = document.getElementById('templateDescription');
-    const defaultDueDaysInput = document.getElementById('defaultDueDays');
-    const reminder7daysInput = document.getElementById('reminder7days');
-    const reminderDueDateInput = document.getElementById('reminderDueDate');
-
-    const templateName = templateNameInput ? templateNameInput.value.trim() : '';
-
-    if (!templateName) {
-        alert('⚠️ Please enter a template name');
-        return { success: false };
-    }
-
-    const templateData = {
-        TemplateId: templateId,
-        TemplateName: templateName,
-        Description: templateDescInput ? templateDescInput.value.trim() : '',
-        Config: JSON.stringify({
-            sections: sections,
-            defaultDueDays: defaultDueDaysInput ? parseInt(defaultDueDaysInput.value) : 30,
-            reminders: {
-                sevenDays: reminder7daysInput ? reminder7daysInput.checked : false,
-                dueDate: reminderDueDateInput ? reminderDueDateInput.checked : false
-            },
-            employeeDetailsIncluded: true
-        })
-    };
-
-    try {
-        const response = await fetch('/Home/UpdateTemplate', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            },
-            body: JSON.stringify(templateData)
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const result = await response.json();
-
-        if (result.success) {
-            alert('✅ Template updated successfully!');
-            return { success: true, templateId: result.templateId };
-        } else {
-            alert('❌ Failed to update template: ' + (result.message || 'Unknown error'));
-            return { success: false };
-        }
-    } catch (error) {
-        console.error('❌ Error updating template:', error);
-        alert('❌ An error occurred while updating the template.');
-        return { success: false };
-    }
+    return [];
 }
+
 // ============================================================================
 // UTILITY FUNCTIONS
 // ============================================================================
@@ -1409,4 +2076,8 @@ function escapeHTML(str) {
     const div = document.createElement('div');
     div.textContent = str;
     return div.innerHTML;
+}
+
+function showNotification(message, type = 'info') {
+    alert((type === 'success' ? '✅ ' : type === 'error' ? '❌ ' : 'ℹ️ ') + message);
 }

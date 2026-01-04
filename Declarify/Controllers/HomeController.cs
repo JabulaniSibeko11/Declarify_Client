@@ -48,7 +48,11 @@ namespace Declarify.Controllers
         private readonly RoleManager<IdentityRole> _roleManager;
         private readonly CentralHubApiService _centralHub;
         private readonly ICentralHubService _centralHubService;
-        public HomeController(ILogger<HomeController> logger,  CentralHubApiService centralHub, RoleManager<IdentityRole>  roleManager,IEmailService email,ApplicationDbContext db, IEmployeeService eS, ITemplateService tS, IFormTaskService fS, ICreditService cS, ILicenseService lS, IVerificationService vS, IUserService uS, ISubmissionService sS, UserManager<ApplicationUser> userManager, SignInManager<ApplicationUser> signInManager)
+        private readonly IEmployeeDOIService _doiService;
+        public HomeController(ILogger<HomeController> logger, IEmployeeDOIService employeeDOIService,
+            CentralHubApiService centralHub, RoleManager<IdentityRole> roleManager, IEmailService email,
+            ApplicationDbContext db, IEmployeeService eS, ITemplateService tS, IFormTaskService fS, ICreditService cS, ILicenseService lS,
+            IVerificationService vS, IUserService uS, ISubmissionService sS, UserManager<ApplicationUser> userManager, SignInManager<ApplicationUser> signInManager)
         {
             _logger = logger;
             _ES = eS;
@@ -63,7 +67,8 @@ namespace Declarify.Controllers
             _userManager = userManager;
             _signInManager = signInManager;
             _db = db;
-            _EmailS= email;
+            _EmailS = email;
+            _doiService = employeeDOIService;
         }
         public async Task<IActionResult> TestPing()
         {
@@ -244,7 +249,7 @@ namespace Declarify.Controllers
             ViewData["ReturnUrl"] = returnUrl;
             return View();
         }
-       
+
         //[HttpPost]
         //[AllowAnonymous]
         //[ValidateAntiForgeryToken]
@@ -512,61 +517,61 @@ namespace Declarify.Controllers
 
                 // Validate signature
                 if (string.IsNullOrEmpty(model.SignatureData))
-            {
-                ModelState.AddModelError("SignatureData", "Please provide your signature.");
-                return View(model);
-            }
-
-            var user = await _userManager.FindByEmailAsync(model.Email);
-            if (user == null)
-            {
-                ModelState.AddModelError(string.Empty, "User not found.");
-                return View(model);
-            }
-
-            // Reset password using the token
-            var result = await _userManager.ResetPasswordAsync(user, model.Token, model.Password);
-
-            if (result.Succeeded)
-            {
-                // Save the signature
-                user.Signature = model.SignatureData; // Store base64 signature
-                user.IsFirstLogin = false;
-                user.PasswordSetupDate = DateTime.UtcNow;
-
-                await _userManager.UpdateAsync(user);
-
-                // Also update the Employee record if linked
-                if (user.EmployeeId.HasValue)
                 {
-                    var employee = await _db.Employees.FindAsync(user.EmployeeId.Value);
-                    if (employee != null)
-                    {
-                        employee.Signature_Picture = model.SignatureData;
-                        employee.Signature_Created_Date = DateTime.UtcNow;
-                        await _db.SaveChangesAsync();
-                    }
+                    ModelState.AddModelError("SignatureData", "Please provide your signature.");
+                    return View(model);
                 }
 
-                _logger.LogInformation("User {Email} completed initial password and signature setup.", model.Email);
-                TempData["Success"] = "Your account has been set up successfully! You can now log in.";
+                var user = await _userManager.FindByEmailAsync(model.Email);
+                if (user == null)
+                {
+                    ModelState.AddModelError(string.Empty, "User not found.");
+                    return View(model);
+                }
 
-                return RedirectToAction("Login");
-            }
+                // Reset password using the token
+                var result = await _userManager.ResetPasswordAsync(user, model.Token, model.Password);
 
-            foreach (var error in result.Errors)
-            {
-                ModelState.AddModelError(string.Empty, error.Description);
-            }
+                if (result.Succeeded)
+                {
+                    // Save the signature
+                    user.Signature = model.SignatureData; // Store base64 signature
+                    user.IsFirstLogin = false;
+                    user.PasswordSetupDate = DateTime.UtcNow;
 
-           
+                    await _userManager.UpdateAsync(user);
+
+                    // Also update the Employee record if linked
+                    if (user.EmployeeId.HasValue)
+                    {
+                        var employee = await _db.Employees.FindAsync(user.EmployeeId.Value);
+                        if (employee != null)
+                        {
+                            employee.Signature_Picture = model.SignatureData;
+                            employee.Signature_Created_Date = DateTime.UtcNow;
+                            await _db.SaveChangesAsync();
+                        }
+                    }
+
+                    _logger.LogInformation("User {Email} completed initial password and signature setup.", model.Email);
+                    TempData["Success"] = "Your account has been set up successfully! You can now log in.";
+
+                    return RedirectToAction("Login");
+                }
+
+                foreach (var error in result.Errors)
+                {
+                    ModelState.AddModelError(string.Empty, error.Description);
+                }
+
+
             }
-            catch (Exception ex) { 
-            
+            catch (Exception ex) {
+
             }
             return View(model);
         }
-      
+
         public async Task<IActionResult> Logout()
         {
             await _signInManager.SignOutAsync();
@@ -644,7 +649,7 @@ namespace Declarify.Controllers
                 var licenseExpiryDate = await _LS.GetExpiryDateAsync();
                 var templates = (await _TS.GetActiveTemplatesAsync()).ToList();
 
-                
+
 
                 // Check for low credit balance
                 //var lowCreditWarning = creditBalance < 50;
@@ -719,6 +724,8 @@ namespace Declarify.Controllers
             }
 
         }
+
+
 
         public async Task<IActionResult> Template() {
             return View();
@@ -928,7 +935,7 @@ namespace Declarify.Controllers
             }
 
             //2. 
-            var consumeResult = await _centralHub.ConsumeCredits(employeeCount,$"DOI Task Creation - Template {templateId}, Due {dueDate:yyyy-MM-dd}, Employees: {string.Join(",", employeeIds)}");
+            var consumeResult = await _centralHub.ConsumeCredits(employeeCount, $"DOI Task Creation - Template {templateId}, Due {dueDate:yyyy-MM-dd}, Employees: {string.Join(",", employeeIds)}");
             if (!consumeResult.Success)
             {
                 throw new Exception("Failed to create Task for Employees — insufficient credits or server error");
@@ -1120,9 +1127,9 @@ namespace Declarify.Controllers
             return View(new EmployeeImportViewModel());
         }
         // Process CSV import (FR 4.1.3)
-      
 
-        
+
+
 
         // 2. Update the ImportEmployees method - Excel parsing section
         [HttpPost("employees/import")]
@@ -1369,7 +1376,7 @@ namespace Declarify.Controllers
             var bytes = package.GetAsByteArray();
             return File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Employee_Import_Template.xlsx");
         }
-       
+
 
 
         // Alternative method using CsvHelper for guaranteed compatibility
@@ -1492,7 +1499,7 @@ namespace Declarify.Controllers
 
             try
             {
-                
+
 
                 var employee = await _ES.CreateEmployeeAsync(model);
 
@@ -1641,93 +1648,130 @@ namespace Declarify.Controllers
             return View(new TemplateCreateViewModel());
         }
 
-        // Save new template
         [HttpPost]
         public async Task<IActionResult> CreateTemplate([FromBody] TemplateCreateViewModel model)
         {
             try
             {
-                _logger.LogInformation("CreateTemplate called");
-
-                // Log the incoming Config JSON for debugging
-                _logger.LogInformation("Received Config JSON: {Config}", model.Config);
-
-                //Central Hub API Calls
-                //1. Check if org has enough credits 
-                CreditCheckResponse? creditCheck = null;
-
-                creditCheck = await _centralHub.CheckCreditBalance();
-
-                if (creditCheck == null || !creditCheck.hasCredits || creditCheck.currentBalance <= 0)
-                {
-                    TempData["ErrorCheckCredits"] = creditCheck == null ? "Cannot verify credits — license server unreachable. Please try again later." : "Your organization has no remaining credits. Please contact your administrator to top up.";
-                    return Ok(new
-                    {
-                        success = false,
-                        message = creditCheck == null ? "Cannot verify credits — license server unreachable. Please try again later." : "Your organization has no remaining credits. Please contact your administrator to top up."
-                    });
-                }
-
-                //2. Deduct credits via central hub API
-                var consumeResult = await _centralHub.ConsumeCredits(1, $"Creted Template");
-                if (!consumeResult.Success)
-                {
-                    TempData["ErrorCheckCredits"] = consumeResult.Error ?? "Failed to record submission — insufficient credits or server error";
-
-                    return Ok(new
-                    {
-                        success = false,
-                        message = consumeResult.Error ?? "Failed to record submission — insufficient credits or server error"
-                    });
-                }
-
-
-                if (model == null)
-                {
-                    return Json(new { success = false, message = "Invalid request data" });
-                }
-
-                if (!await _LS.IsLicenseValidAsync())
-                {
-                    return Json(new { success = false, message = "License expired" });
-                }
-
-                if (string.IsNullOrWhiteSpace(model.TemplateName))
-                {
-                    return Json(new { success = false, message = "Template name is required" });
-                }
+                _logger.LogInformation("=== CreateTemplate called ===");
 
                 if (string.IsNullOrWhiteSpace(model.Config))
                 {
                     return Json(new { success = false, message = "Configuration is required" });
                 }
 
+                // Log the raw JSON from frontend
+                _logger.LogInformation("?? Raw Config JSON from frontend:\n{Config}", model.Config);
+
                 TemplateConfig config;
                 try
                 {
-                    // Use case-insensitive deserialization options
-                    var options = new JsonSerializerOptions
+                    // ? CRITICAL: Use camelCase naming to match JavaScript
+                    var deserializeOptions = new JsonSerializerOptions
                     {
                         PropertyNameCaseInsensitive = true,
-                        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.Never
                     };
 
-                    config = System.Text.Json.JsonSerializer.Deserialize<TemplateConfig>(model.Config, options);
+                    config = System.Text.Json.JsonSerializer.Deserialize<TemplateConfig>(model.Config, deserializeOptions);
 
                     if (config == null || config.Sections == null || config.Sections.Count == 0)
                     {
-                        _logger.LogWarning("Deserialized config has no sections. Config JSON: {Config}", model.Config);
-                        return Json(new { success = false, message = "Template must have at least one section" });
+                        return BadRequest(new { success = false, message = "Template must have at least one section" });
                     }
 
-                    _logger.LogInformation("Successfully deserialized {Count} sections", config.Sections.Count);
+                    // ? DETAILED LOGGING FOR DEBUGGING
+                    _logger.LogInformation("? Successfully deserialized config with {SectionCount} sections", config.Sections.Count);
+
+                    int simpleTableCount = 0;
+                    int advTableCount = 0;
+
+                    foreach (var section in config.Sections)
+                    {
+                        _logger.LogInformation("?? Section '{Title}' has {FieldCount} fields",
+                            section.SectionTitle, section.Fields.Count);
+
+                        foreach (var field in section.Fields)
+                        {
+                            // Check Simple Tables
+                            if (field.FieldType == "table")
+                            {
+                                simpleTableCount++;
+
+                                if (field.TableConfig == null)
+                                {
+                                    _logger.LogWarning("?? PROBLEM: Simple table '{Label}' has NULL TableConfig!", field.FieldLabel);
+                                }
+                                else if (field.TableConfig.Columns == null || field.TableConfig.Columns.Count == 0)
+                                {
+                                    _logger.LogWarning("?? PROBLEM: Simple table '{Label}' has EMPTY columns!", field.FieldLabel);
+                                }
+                                else
+                                {
+                                    _logger.LogInformation(
+                                        "? SUCCESS: Simple table '{Label}' has {Count} columns: [{Columns}]",
+                                        field.FieldLabel,
+                                        field.TableConfig.Columns.Count,
+                                        string.Join(", ", field.TableConfig.Columns)
+                                    );
+                                }
+                            }
+
+                            // Check Advanced Tables
+                            if (field.FieldType == "advancedTable")
+                            {
+                                advTableCount++;
+
+                                if (field.Columns == null || field.Columns.Count == 0)
+                                {
+                                    _logger.LogWarning("?? PROBLEM: Advanced table '{Label}' has NO columns!", field.FieldLabel);
+                                }
+                                else
+                                {
+                                    _logger.LogInformation(
+                                        "? SUCCESS: Advanced table '{Label}' configuration:",
+                                        field.FieldLabel
+                                    );
+                                    _logger.LogInformation(
+                                        "   ?? Columns ({Count}): [{Columns}]",
+                                        field.Columns.Count,
+                                        string.Join(", ", field.Columns.Select(c => $"{c.Name} ({c.Type})"))
+                                    );
+                                    _logger.LogInformation(
+                                        "   ?? Grid: {Rows} rows × {Cols} columns",
+                                        field.Rows ?? 0,
+                                        field.GridColumns ?? 0
+                                    );
+                                    _logger.LogInformation(
+                                        "   ?? Cells: {CellCount} defined, {MergedCount} merged",
+                                        field.Cells?.Count ?? 0,
+                                        field.Cells?.Count(c => c.IsMerged) ?? 0
+                                    );
+                                }
+                            }
+                        }
+                    }
+
+                    _logger.LogInformation("?? Summary: {SimpleCount} simple tables, {AdvCount} advanced tables",
+                        simpleTableCount, advTableCount);
+
+                    // ? Re-serialize to verify data integrity before saving
+                    var serializeOptions = new JsonSerializerOptions
+                    {
+                        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                        WriteIndented = true
+                    };
+                    var reserializedConfig = System.Text.Json.JsonSerializer.Serialize(config, serializeOptions);
+                    _logger.LogInformation("?? Re-serialized config for database:\n{Config}", reserializedConfig);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Failed to parse config. Config JSON: {Config}", model.Config);
-                    return Json(new { success = false, message = "Invalid configuration format: " + ex.Message });
+                    _logger.LogError(ex, "? Failed to parse config JSON");
+                    return BadRequest(new { success = false, message = "Invalid configuration format: " + ex.Message });
                 }
 
+                // Create the template definition
                 var templateDefinition = new TemplateDefinition
                 {
                     TemplateName = model.TemplateName.Trim(),
@@ -1738,10 +1782,11 @@ namespace Declarify.Controllers
                     UpdatedAt = DateTime.UtcNow
                 };
 
+                // Save to database
                 var template = await _TS.CreateAsync(templateDefinition);
 
-                _logger.LogInformation("Template created successfully: {TemplateId} with {SectionCount} sections",
-                    template.TemplateId, config.Sections.Count);
+                _logger.LogInformation("? Template created successfully: '{Name}' (ID: {Id})",
+                    template.TemplateName, template.TemplateId);
 
                 return Json(new
                 {
@@ -1752,14 +1797,11 @@ namespace Declarify.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error creating template");
-
-                //refund credits
-
+                _logger.LogError(ex, "? Error creating template");
                 return Json(new { success = false, message = ex.Message });
             }
         }
-        // Edit template form
+
         [HttpGet("templates/edit/{id}")]
         public async Task<IActionResult> EditTemplate(int id)
         {
@@ -2189,8 +2231,342 @@ namespace Declarify.Controllers
             return Math.Round((double)compliant / tasks.Count * 100, 2);
         }
 
+        // GET: User Role Management Page
+        [HttpGet]
+        //[Authorize(RoleInCompany = "Admin")]
+        public async Task<IActionResult> UserRoleManagement()
+        {
+            try
+            {
+                var users = await _db.Users
+                    .Include(u => u.Employee)
+                    .ThenInclude(e => e.Manager)
+                    .Where(u => u.Employee != null && u.Employee.IsActive)
+                    .OrderBy(u => u.Full_Name)
+                    .Select(u => new
+                    {
+                        userId = u.Id,
+                        employeeId = u.EmployeeId,
+                        fullName = u.Full_Name ?? "N/A",
+                        email = u.Email ?? "N/A",
+                        position = u.Position ?? "N/A",
+                        department = u.Department ?? "N/A",
+                        currentRole = u.roleInCompany ?? "Employee",
+                        isActive = u.Employee.IsActive,
+                        lastLogin = u.PasswordSetupDate,
+                        phoneNumber = u.PhoneNumber,
+                        currentManagerId = u.Employee.ManagerId,
+                        currentManagerName = u.Employee.Manager != null ? u.Employee.Manager.Full_Name : null
+                    })
+                    .ToListAsync();
 
-       
+                var viewModel = new UserRoleManagementViewModel
+                {
+                    TotalUsers = users.Count,
+                    AdminCount = users.Count(u => u.currentRole == "Admin"),
+                    ExecutiveCount = users.Count(u => u.currentRole == "Executive"),
+                    EmployeeCount = users.Count(u => u.currentRole == "Employee" || string.IsNullOrEmpty(u.currentRole)),
+                    Users = users.Select(u => new UserRoleItem
+                    {
+                        UserId = u.userId,
+                        EmployeeId = u.employeeId ?? 0,
+                        FullName = u.fullName,
+                        Email = u.email,
+                        Position = u.position,
+                        Department = u.department,
+                        CurrentRole = u.currentRole,
+                        IsActive = u.isActive,
+                        LastLogin = u.lastLogin,
+                        PhoneNumber = u.phoneNumber,
+                        CurrentManagerId = u.currentManagerId,
+                        CurrentManagerName = u.currentManagerName
+                    }).ToList()
+                };
+
+                return View(viewModel);
+            }
+            catch (Exception ex)
+            {
+                TempData["ErrorMessage"] = $"Error loading user data: {ex.Message}";
+                return RedirectToAction("Index", "Home");
+            }
+        }
+
+        // POST: Update User Roles
+        [HttpPost]
+        //[Authorize(Roles = "Admin")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UpdateUserRoles([FromBody] UpdateRolesRequest request)
+        {
+            try
+            {
+                // Validate request
+                if (request?.Changes == null || !request.Changes.Any())
+                {
+                    return Json(new { success = false, message = "No changes provided" });
+                }
+
+                // Get current user to prevent self-demotion
+                var currentUserId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                var currentUser = await _db.Users.FindAsync(currentUserId);
+
+                if (currentUser == null)
+                {
+                    return Json(new { success = false, message = "Current user not found" });
+                }
+
+                var updatedCount = 0;
+                var errors = new List<string>();
+
+                foreach (var change in request.Changes)
+                {
+                    try
+                    {
+                        var user = await _db.Users.FindAsync(change.UserId);
+
+                        if (user == null)
+                        {
+                            errors.Add($"User {change.UserId} not found");
+                            continue;
+                        }
+
+                        // Prevent self-demotion for admins
+                        if (user.Id == currentUserId && user.roleInCompany == "Admin" && change.NewRole != "Admin")
+                        {
+                            errors.Add("You cannot remove your own admin privileges");
+                            continue;
+                        }
+
+                        // Validate role
+                        if (!IsValidRole(change.NewRole))
+                        {
+                            errors.Add($"Invalid role: {change.NewRole}");
+                            continue;
+                        }
+
+                        // Update role
+                        user.roleInCompany = change.NewRole;
+                        user.Role = change.NewRole; // Assuming Role property is also used
+                        updatedCount++;
+                    }
+                    catch (Exception ex)
+                    {
+                        errors.Add($"Error updating user {change.UserId}: {ex.Message}");
+                    }
+                }
+
+                // Save changes
+                if (updatedCount > 0)
+                {
+                    await _db.SaveChangesAsync();
+
+                    // Log the changes
+                    await LogRoleChanges(currentUserId, request.Changes);
+                }
+
+                return Json(new
+                {
+                    success = true,
+                    updatedCount = updatedCount,
+                    errors = errors.Any() ? errors : null,
+                    message = $"Successfully updated {updatedCount} user role{(updatedCount != 1 ? "s" : "")}"
+                });
+            }
+            catch (Exception ex)
+            {
+                return Json(new
+                {
+                    success = false,
+                    message = "An error occurred while updating user roles",
+                    error = ex.Message
+                });
+            }
+        }
+
+        // Helper method to validate role
+        private bool IsValidRole(string role)
+        {
+            var validRoles = new[] { "Admin", "Executive", "Employee" };
+            return validRoles.Contains(role, StringComparer.OrdinalIgnoreCase);
+        }
+
+        // Helper method to log role changes
+        private async Task LogRoleChanges(string adminUserId, List<RoleChange> changes)
+        {
+            // Implement your logging logic here
+            // Example: Create audit log entries
+            await Task.CompletedTask;
+        }
+
+        // POST: Assign Manager to Employee
+        [HttpPost]
+        //[Authorize(Roles = "Admin")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> AssignManager([FromBody] AssignManagerRequest request)
+        {
+            try
+            {
+                if (request == null || request.EmployeeId == 0)
+                {
+                    return Json(new { success = false, message = "Invalid request" });
+                }
+
+                var employee = await _db.Employees.FindAsync(request.EmployeeId);
+
+                if (employee == null)
+                {
+                    return Json(new { success = false, message = "Employee not found" });
+                }
+
+                // Validate that the new manager exists (if not null/removing manager)
+                if (request.NewManagerId.HasValue && request.NewManagerId.Value > 0)
+                {
+                    var newManager = await _db.Employees.FindAsync(request.NewManagerId.Value);
+                    if (newManager == null)
+                    {
+                        return Json(new { success = false, message = "Manager not found" });
+                    }
+
+                    // Prevent circular reporting (employee cannot report to themselves)
+                    if (request.NewManagerId.Value == request.EmployeeId)
+                    {
+                        return Json(new { success = false, message = "Employee cannot report to themselves" });
+                    }
+
+                    employee.ManagerId = request.NewManagerId.Value;
+                }
+                else
+                {
+                    // Remove manager assignment
+                    employee.ManagerId = null;
+                }
+
+                await _db.SaveChangesAsync();
+
+                // Get the new manager name for response
+                string newManagerName = null;
+                if (employee.ManagerId.HasValue)
+                {
+                    var manager = await _db.Employees.FindAsync(employee.ManagerId.Value);
+                    newManagerName = manager?.Full_Name;
+                }
+
+                return Json(new
+                {
+                    success = true,
+                    message = "Manager assigned successfully",
+                    newManagerId = employee.ManagerId,
+                    newManagerName = newManagerName
+                });
+            }
+            catch (Exception ex)
+            {
+                return Json(new
+                {
+                    success = false,
+                    message = "An error occurred while assigning manager",
+                    error = ex.Message
+                });
+            }
+        }
+
+        // POST: Bulk Reassign Manager
+        [HttpPost]
+        //[Authorize(Roles = "Admin")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> BulkReassignManager([FromBody] BulkReassignRequest request)
+        {
+            try
+            {
+                if (request == null || request.FromManagerId == 0 || request.ToManagerId == 0)
+                {
+                    return Json(new { success = false, message = "Invalid request" });
+                }
+
+                if (request.FromManagerId == request.ToManagerId)
+                {
+                    return Json(new { success = false, message = "Cannot reassign to the same manager" });
+                }
+
+                // Validate managers exist
+                var fromManager = await _db.Employees.FindAsync(request.FromManagerId);
+                var toManager = await _db.Employees.FindAsync(request.ToManagerId);
+
+                if (fromManager == null)
+                {
+                    return Json(new { success = false, message = "Source manager not found" });
+                }
+
+                if (toManager == null)
+                {
+                    return Json(new { success = false, message = "Target manager not found" });
+                }
+
+                // Get all employees reporting to the "from" manager
+                var employeesToReassign = await _db.Employees
+                    .Where(e => e.ManagerId == request.FromManagerId && e.IsActive)
+                    .ToListAsync();
+
+                if (!employeesToReassign.Any())
+                {
+                    return Json(new
+                    {
+                        success = false,
+                        message = $"No employees found reporting to {fromManager.Full_Name}"
+                    });
+                }
+
+                // Reassign all employees
+                foreach (var employee in employeesToReassign)
+                {
+                    employee.ManagerId = request.ToManagerId;
+                }
+
+                await _db.SaveChangesAsync();
+
+                return Json(new
+                {
+                    success = true,
+                    message = $"Successfully reassigned {employeesToReassign.Count} employee{(employeesToReassign.Count != 1 ? "s" : "")} from {fromManager.Full_Name} to {toManager.Full_Name}",
+                    reassignedCount = employeesToReassign.Count,
+                    fromManagerName = fromManager.Full_Name,
+                    toManagerName = toManager.Full_Name
+                });
+            }
+            catch (Exception ex)
+            {
+                return Json(new
+                {
+                    success = false,
+                    message = "An error occurred during bulk reassignment",
+                    error = ex.Message
+                });
+            }
+        }
+
+        // Request models
+        public class UpdateRolesRequest
+        {
+            public List<RoleChange> Changes { get; set; }
+        }
+
+        public class RoleChange
+        {
+            public string UserId { get; set; }
+            public string NewRole { get; set; }
+        }
+
+        public class AssignManagerRequest
+        {
+            public int EmployeeId { get; set; }
+            public int? NewManagerId { get; set; }
+        }
+
+        public class BulkReassignRequest
+        {
+            public int FromManagerId { get; set; }
+            public int ToManagerId { get; set; }
+        }
         public IActionResult Privacy()
         {
             return View();

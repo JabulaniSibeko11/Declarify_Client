@@ -396,48 +396,58 @@ namespace Declarify.Services.Methods
 
             return viewModel;
         }   // Gets all tasks for an employee
-        public async Task<EmployeeDashboardViewModel> GetEmployeeDashboardAsync1(int employeeId)
+
+        public async Task<EmployeeDashboardViewModel> GetAdminDashboardAsync(int employeeId)
         {
-            if (employeeId <= 0)
-                throw new ArgumentException("Invalid employee ID.", nameof(employeeId));
-
-            // Load core data in parallel where possible for better performance
-            var employeeTask = GetEmployeeProfileAsync(employeeId);
-            var tasksTask = GetEmployeeTasksAsync(employeeId);
-            var statsTask = GetEmployeeComplianceStatsAsync(employeeId);
-            var isLineManagerTask = _reviewerService.IsLineManagerAsync(employeeId);
-
-            //await Task.WhenAll(employeeTask, tasksTask, statsTask, isLineManagerTask);
-
-            var employee = await employeeTask;
+            // Load core employee data
+            var employee = await GetEmployeeProfileAsync(employeeId);
             if (employee == null)
-                throw new InvalidOperationException("Employee not found.");
+            {
+                throw new InvalidOperationException("Employee not found");
+            }
 
-            var tasks = await tasksTask;
-            var stats = await statsTask;
-            var isLineManager = isLineManagerTask.Result;
+            var tasks = await GetEmployeeTasksAsync(employeeId);
+            var stats = await GetEmployeeComplianceStatsAsync(employeeId);
 
-            // Build the view model
+            // Build the base view model
             var viewModel = new EmployeeDashboardViewModel
             {
-                Employee = employee,
+
+                Employee = new EmployeeProfile
+                {
+                    EmployeeId = employee.EmployeeId,
+                    FullName = employee.FullName ?? string.Empty,
+                    Email = employee.Email ?? string.Empty,
+                    Position = employee.Position ?? string.Empty,
+                    Department = employee.Department ?? string.Empty,
+                    ManagerName = employee.ManagerName ?? string.Empty,
+
+                    // Determine roles based on position title
+                    IsExecutive = EmployeeRoleHelper.IsExecutive(employee.Position),
+                    IsSeniorManagement = EmployeeRoleHelper.IsSeniorManagement(employee.Position),
+                    HasManagerTitle = EmployeeRoleHelper.HasManagerTitle(employee.Position)
+
+                },
+
                 Tasks = tasks,
                 Stats = stats,
                 HasPendingTasks = tasks.Any(t => t.Status == "Outstanding"),
-                HasOverdueTasks = tasks.Any(t => t.Status is "Outstanding" && t.DueDate < DateTime.UtcNow),
-                IsLineManager = isLineManager
+                HasOverdueTasks = tasks.Any(t => t.Status == "Outstanding" && t.DueDate < DateTime.UtcNow)
             };
 
-            // === Line Manager / Reviewer Section ===
-            if (isLineManager)
-            {
-                // Load subordinates' compliance data only if they are a manager
-                var subordinates = await _reviewerService.GetSubordinateComplianceAsync(employeeId);
+            // === Line Manager / Reviewer Functionality (PRD: FR 4.5.2) ===
+            // Check if current employee has direct subordinates → they are a Reviewer/Line Manager
+            viewModel.IsLineManager = await _reviewerService.IsLineManagerAsync(employeeId);
 
-                viewModel.Subordinates = subordinates;
-                viewModel.PendingReviewsCount = subordinates
+            if (viewModel.IsLineManager)
+            {
+                // Load compliance data for all direct subordinates
+                viewModel.Subordinates = await _reviewerService.GetSubordinateComplianceAsync(employeeId);
+
+                // Optional: Calculate how many submissions are awaiting review
+                viewModel.PendingReviewsCount = viewModel.Subordinates
                     .SelectMany(s => s.Tasks)
-                    .Count(t => t.Status == "Submitted"); // Tasks awaiting review
+                    .Count(t => t.Status == "Submitted"); // Only "Submitted" tasks need review
             }
             else
             {
@@ -446,7 +456,9 @@ namespace Declarify.Services.Methods
             }
 
             return viewModel;
-        }
+        }   // Gets all tasks for an employee
+
+
 
         public async Task<List<FormTask>> GetEmployeeTasksAsync(int employeeId)
         {

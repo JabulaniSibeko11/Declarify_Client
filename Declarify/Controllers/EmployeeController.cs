@@ -1,14 +1,15 @@
-﻿using System.Security.Claims;
-using System.Text.Json;
-using System.Threading.Tasks;
-using Declarify.Data;
+﻿using Declarify.Data;
 using Declarify.Models;
 using Declarify.Models.ViewModels;
 using Declarify.Services;
 using Declarify.Services.API;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
+using System.Text.Json;
+using System.Threading.Tasks;
 
 namespace Declarify.Controllers
 {
@@ -20,15 +21,17 @@ namespace Declarify.Controllers
 
         private readonly ApplicationDbContext _db;
         private readonly CentralHubApiService _centralHub;
+        private readonly UserManager<ApplicationUser> _userManager;
         public EmployeeController(
           IEmployeeDOIService doiService,
-          ILogger<EmployeeController> logger,   CentralHubApiService centralHub,ApplicationDbContext db, IReviewHelperService reviewHelper)
+          ILogger<EmployeeController> logger, UserManager<ApplicationUser> userManager,   CentralHubApiService centralHub,ApplicationDbContext db, IReviewHelperService reviewHelper)
         {
             _doiService = doiService;
             _logger = logger;
             _db = db;
             _reviewHelper = reviewHelper;
             _centralHub = centralHub;
+            _userManager = userManager;
         }
 
         // GET: /employee/dashboard
@@ -268,24 +271,388 @@ namespace Declarify.Controllers
             return View();
         }
 
-        // GET: /employee/profile
-        [HttpGet("profile")]
+        [HttpGet]
         public async Task<IActionResult> Profile()
         {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            var employee = await _db.Employees
+                .Include(e => e.Manager)
+                .Include(e => e.ApplicationUser)
+                .FirstOrDefaultAsync(e => e.ApplicationUserId == userId);
+
+            if (employee == null)
+            {
+                return NotFound("Employee profile not found");
+            }
+
+            var viewModel = new ProfileViewModel
+            {
+                EmployeeId = employee.EmployeeId,
+                EmployeeNumber = employee.EmployeeNumber ?? string.Empty,
+                FullName = employee.Full_Name ?? string.Empty,
+                EmailAddress = employee.Email_Address ?? string.Empty,
+                Position = employee.Position ?? string.Empty,
+                Department = employee.Department ?? string.Empty,
+                Region = employee.Region,
+                PhoneNumber = employee.ApplicationUser?.PhoneNumber,
+
+                ManagerId = employee.ManagerId,
+                ManagerName = employee.Manager?.Full_Name,
+                CurrentSignaturePath = employee.Signature_Picture,
+                SignatureCreatedDate = employee.Signature_Created_Date,
+                IsActive = employee.IsActive,
+                AvailableManagers = await GetAvailableManagers(employee.EmployeeId)
+            };
+
+            return View(viewModel);
+        }
+
+        // ==========================================
+        // PROFILE MANAGEMENT - POST
+        // ==========================================
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Profile(ProfileViewModel model, string signatureData)
+        {
+            // Remove password validation if fields are empty (optional password change)
+            if (string.IsNullOrWhiteSpace(model.CurrentPassword) &&
+                string.IsNullOrWhiteSpace(model.NewPassword) &&
+                string.IsNullOrWhiteSpace(model.ConfirmPassword))
+            {
+                ModelState.Remove("CurrentPassword");
+                ModelState.Remove("NewPassword");
+                ModelState.Remove("ConfirmPassword");
+            }
+
+            if (!ModelState.IsValid)
+            {
+                model.AvailableManagers = await GetAvailableManagers(model.EmployeeId);
+                return View(model);
+            }
+
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var employee = await _db.Employees
+                .Include(e => e.ApplicationUser)
+                .FirstOrDefaultAsync(e => e.ApplicationUserId == userId);
+
+            if (employee == null)
+            {
+                return NotFound("Employee profile not found");
+            }
+
+            var applicationUser = await _userManager.FindByIdAsync(userId);
+            if (applicationUser == null)
+            {
+                return NotFound("User account not found");
+            }
+
+            // Track what changed for success message
+            bool employeeUpdated = false;
+            bool userUpdated = false;
+            bool passwordChanged = false;
+            bool signatureUpdated = false;
+
+            // ==========================================
+            // SELECTIVE UPDATE - EMPLOYEE TABLE
+            // ==========================================
+            if (employee.Full_Name != model.FullName)
+            {
+                employee.Full_Name = model.FullName;
+                employeeUpdated = true;
+            }
+
+            if (employee.Email_Address != model.EmailAddress)
+            {
+                employee.Email_Address = model.EmailAddress;
+                employeeUpdated = true;
+            }
+
+            if (employee.Position != model.Position)
+            {
+                employee.Position = model.Position;
+                employeeUpdated = true;
+            }
+
+            if (employee.Department != model.Department)
+            {
+                employee.Department = model.Department;
+                employeeUpdated = true;
+            }
+
+            if (employee.Region != model.Region)
+            {
+                employee.Region = model.Region;
+                employeeUpdated = true;
+            }
+
+            if (employee.ManagerId != model.ManagerId)
+            {
+                employee.ManagerId = model.ManagerId;
+                employeeUpdated = true;
+            }
+
+            // ==========================================
+            // SELECTIVE UPDATE - APPLICATION USER TABLE
+            // ==========================================
+            if (applicationUser.Full_Name != model.FullName)
+            {
+                applicationUser.Full_Name = model.FullName;
+                userUpdated = true;
+            }
+
+            if (applicationUser.Position != model.Position)
+            {
+                applicationUser.Position = model.Position;
+                userUpdated = true;
+            }
+
+            if (applicationUser.Department != model.Department)
+            {
+                applicationUser.Department = model.Department;
+                userUpdated = true;
+            }
+
+            if (applicationUser.Email != model.EmailAddress)
+            {
+                applicationUser.Email = model.EmailAddress;
+                applicationUser.UserName = model.EmailAddress; // Keep username in sync
+                userUpdated = true;
+            }
+            if (applicationUser.PhoneNumber != model.PhoneNumber)
+            {
+                applicationUser.PhoneNumber = model.PhoneNumber;
+                userUpdated = true;
+            }
+
+
+            // ==========================================
+            // HANDLE PASSWORD CHANGE (OPTIONAL)
+            // ==========================================
+            if (!string.IsNullOrWhiteSpace(model.CurrentPassword) &&
+                !string.IsNullOrWhiteSpace(model.NewPassword))
+            {
+                var passwordChangeResult = await _userManager.ChangePasswordAsync(
+                    applicationUser,
+                    model.CurrentPassword,
+                    model.NewPassword
+                );
+
+                if (!passwordChangeResult.Succeeded)
+                {
+                    foreach (var error in passwordChangeResult.Errors)
+                    {
+                        ModelState.AddModelError(string.Empty, error.Description);
+                    }
+                    model.AvailableManagers = await GetAvailableManagers(model.EmployeeId);
+                    return View(model);
+                }
+
+                passwordChanged = true;
+                applicationUser.PasswordSetupDate = DateTime.Now;
+                applicationUser.IsFirstLogin = false;
+                userUpdated = true;
+            }
+
+            // ==========================================
+            // HANDLE SIGNATURE UPLOAD/DRAWING
+            // ==========================================
+            if (!string.IsNullOrEmpty(signatureData))
+            {
+                // Handle base64 drawn signature
+                try
+                {
+                    // Remove the data:image/png;base64, prefix if present
+                    var base64Data = signatureData.Contains(",")
+                        ? signatureData.Split(',')[1]
+                        : signatureData;
+
+                    byte[] imageBytes = Convert.FromBase64String(base64Data);
+
+                    // Generate unique filename
+                    var fileName = $"signature_{employee.EmployeeId}_{DateTime.Now:yyyyMMddHHmmss}.png";
+                    var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "signatures");
+
+                    // Ensure directory exists
+                    if (!Directory.Exists(uploadsFolder))
+                    {
+                        Directory.CreateDirectory(uploadsFolder);
+                    }
+
+                    var filePath = Path.Combine(uploadsFolder, fileName);
+
+                    // Save the image
+                    await System.IO.File.WriteAllBytesAsync(filePath, imageBytes);
+
+                    // Update paths
+                    employee.Signature_Picture = $"/signatures/{fileName}";
+                    employee.Signature_Created_Date = DateTime.Now;
+
+                    // Also update ApplicationUser signature
+                    applicationUser.Signature = $"/signatures/{fileName}";
+
+                    signatureUpdated = true;
+                    employeeUpdated = true;
+                    userUpdated = true;
+                }
+                catch (Exception ex)
+                {
+                    ModelState.AddModelError("", $"Error saving signature: {ex.Message}");
+                    model.AvailableManagers = await GetAvailableManagers(model.EmployeeId);
+                    return View(model);
+                }
+            }
+            else if (model.SignatureFile != null && model.SignatureFile.Length > 0)
+            {
+                // Handle uploaded signature file
+                try
+                {
+                    // Validate file size (max 2MB)
+                    if (model.SignatureFile.Length > 2 * 1024 * 1024)
+                    {
+                        ModelState.AddModelError("SignatureFile", "File size cannot exceed 2MB");
+                        model.AvailableManagers = await GetAvailableManagers(model.EmployeeId);
+                        return View(model);
+                    }
+
+                    // Validate file type
+                    var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif" };
+                    var fileExtension = Path.GetExtension(model.SignatureFile.FileName).ToLowerInvariant();
+
+                    if (!allowedExtensions.Contains(fileExtension))
+                    {
+                        ModelState.AddModelError("SignatureFile", "Only JPG, PNG, and GIF files are allowed");
+                        model.AvailableManagers = await GetAvailableManagers(model.EmployeeId);
+                        return View(model);
+                    }
+
+                    // Generate unique filename
+                    var fileName = $"signature_{employee.EmployeeId}_{DateTime.Now:yyyyMMddHHmmss}{fileExtension}";
+                    var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "signatures");
+
+                    // Ensure directory exists
+                    if (!Directory.Exists(uploadsFolder))
+                    {
+                        Directory.CreateDirectory(uploadsFolder);
+                    }
+
+                    var filePath = Path.Combine(uploadsFolder, fileName);
+
+                    // Save the file
+                    using (var stream = new FileStream(filePath, FileMode.Create))
+                    {
+                        await model.SignatureFile.CopyToAsync(stream);
+                    }
+
+                    // Update paths
+                    employee.Signature_Picture = $"/signatures/{fileName}";
+                    employee.Signature_Created_Date = DateTime.Now;
+
+                    // Also update ApplicationUser signature
+                    applicationUser.Signature = $"/signatures/{fileName}";
+
+                    signatureUpdated = true;
+                    employeeUpdated = true;
+                    userUpdated = true;
+                }
+                catch (Exception ex)
+                {
+                    ModelState.AddModelError("", $"Error uploading signature: {ex.Message}");
+                    model.AvailableManagers = await GetAvailableManagers(model.EmployeeId);
+                    return View(model);
+                }
+            }
+
+            // ==========================================
+            // SAVE CHANGES TO DATABASE (ONLY IF UPDATED)
+            // ==========================================
             try
             {
-                var employeeId = GetCurrentEmployeeId();
-                var profile = await _doiService.GetEmployeeProfileAsync(employeeId);
+                // Only update Employee if changes were made
+                if (employeeUpdated)
+                {
+                    _db.Update(employee);
+                }
 
-                return View(profile);
+                // Only update ApplicationUser if changes were made
+                if (userUpdated)
+                {
+                    var userUpdateResult = await _userManager.UpdateAsync(applicationUser);
+
+                    if (!userUpdateResult.Succeeded)
+                    {
+                        foreach (var error in userUpdateResult.Errors)
+                        {
+                            ModelState.AddModelError(string.Empty, error.Description);
+                        }
+                        model.AvailableManagers = await GetAvailableManagers(model.EmployeeId);
+                        return View(model);
+                    }
+                }
+
+                if (employeeUpdated)
+                {
+                    await _db.SaveChangesAsync();
+                }
+
+                // Set success message based on what was updated
+                if (passwordChanged && signatureUpdated)
+                {
+                    TempData["SuccessMessage"] = "Profile, password, and signature updated successfully!";
+                }
+                else if (passwordChanged)
+                {
+                    TempData["SuccessMessage"] = "Profile and password updated successfully!";
+                }
+                else if (signatureUpdated)
+                {
+                    TempData["SuccessMessage"] = "Profile and signature updated successfully!";
+                }
+                else if (employeeUpdated || userUpdated)
+                {
+                    TempData["SuccessMessage"] = "Profile updated successfully!";
+                }
+                else
+                {
+                    TempData["SuccessMessage"] = "No changes were made.";
+                }
+
+                return RedirectToAction(nameof(Profile));
             }
-            catch (Exception ex)
+            catch (DbUpdateException ex)
             {
-                _logger.LogError(ex, "Error loading employee profile");
-                return StatusCode(500, "Error loading profile");
+                ModelState.AddModelError("", $"Unable to save changes: {ex.Message}");
+                model.AvailableManagers = await GetAvailableManagers(model.EmployeeId);
+                return View(model);
             }
         }
-        
+
+        // ==========================================
+        // HELPER METHOD - GET AVAILABLE MANAGERS
+        // ==========================================
+        private async Task<List<ManagerDropdownItem>> GetAvailableManagers(int currentEmployeeId)
+        {
+            return await _db.Employees
+                .Where(e => e.IsActive && e.EmployeeId != currentEmployeeId)
+                .OrderBy(e => e.Full_Name)
+                .Select(e => new ManagerDropdownItem
+                {
+                    EmployeeId = e.EmployeeId,
+                    FullName = e.Full_Name ?? string.Empty,
+                    Position = e.Position ?? string.Empty,
+                    Department = e.Department ?? string.Empty
+                })
+                .ToListAsync();
+        }
+       
+    
+        // ==========================================
+        // REQUIRED USINGS AT TOP OF FILE:
+        // ==========================================
+        // using System.Security.Claims;
+        // using Microsoft.AspNetCore.Hosting;
+        // using Microsoft.AspNetCore.Http;
+
         // GET: /employee/compliance-stats
         [HttpGet("compliance-stats")]
         public async Task<IActionResult> GetComplianceStats()

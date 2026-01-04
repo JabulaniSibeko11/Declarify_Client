@@ -14,6 +14,12 @@
         public List<SubordinateComplianceViewModel> Subordinates { get; set; } = new();
         public int PendingReviewsCount { get; set; } // For badge on "Team Approvals" tab
 
+        public List<EmployeeTaskDto> AdminTasks { get; set; } = new List<EmployeeTaskDto>();
+      
+        public double TasksComplianceRate { get; set; }
+
+     
+
     }
     public class EmployeeProfile
     {

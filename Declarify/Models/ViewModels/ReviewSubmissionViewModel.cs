@@ -16,6 +16,11 @@
 
         public string ReviewerSignature { get; set; } = string.Empty; // ADDED: Base64 signature from Employee.Signature
 
+        // New properties for admin's personal tasks
+        public List<EmployeeTaskDto> AdminTasks { get; set; } = new List<EmployeeTaskDto>();
+        public bool HasPendingTasks { get; set; }
+        public double TasksComplianceRate { get; set; }
+
 
 
         // Form Content
@@ -49,6 +54,22 @@
 
     }
 
-   
-  
+    public class EmployeeTaskDto
+    {
+        public int TaskId { get; set; }
+        public string TemplateName { get; set; }
+        public DateTime DueDate { get; set; }
+        public string Status { get; set; }
+        public DateTime? SubmittedDate { get; set; }
+        public string AccessToken { get; set; }
+        public bool IsOverdue => DueDate < DateTime.UtcNow && Status == "Outstanding";
+        public int DaysUntilDue => (DueDate - DateTime.UtcNow).Days;
+        public TemplateDto Template { get; set; }
+    }
+    public class TemplateDto
+    {
+        public int TemplateId { get; set; }
+        public string TemplateName { get; set; }
+        public string Description { get; set; }
+    }
 }
