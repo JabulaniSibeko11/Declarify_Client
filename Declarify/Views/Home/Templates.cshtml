@@ -138,55 +138,63 @@
     }
 </div>
 
-@section Scripts {
-    <script>
-        // Filter functionality
-        document.querySelectorAll('.filter-pill').forEach(pill => {
-            pill.addEventListener('click', function() {
-                document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
-                this.classList.add('active');
+<script>
+    // Filter functionality - FIXED
+    document.querySelectorAll('.filter-pill').forEach(pill => {
+        pill.addEventListener('click', function() {
+            // Remove active class from all pills
+            document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
+            // Add active class to clicked pill
+            this.classList.add('active');
 
-                const filter = this.dataset.filter;
-                const rows = document.querySelectorAll('#templatesTable tbody tr');
-
-                rows.forEach(row => {
-                    if (filter === 'all' || row.dataset.status === filter) {
-                        row.style.display = '';
-                    } else {
-                        row.style.display = 'none';
-                    }
-                });
-            });
-        });
-
-        // Search functionality
-        const searchInput = document.getElementById('searchInput');
-        searchInput.addEventListener('input', function() {
-            const searchTerm = this.value.toLowerCase();
+            const filter = this.dataset.filter.toLowerCase();
             const rows = document.querySelectorAll('#templatesTable tbody tr');
 
             rows.forEach(row => {
-                const name = row.querySelector('.template-name').textContent.toLowerCase();
-                const description = row.querySelector('.template-description').textContent.toLowerCase();
+                const rowStatus = row.dataset.status.toLowerCase();
 
-                if (name.includes(searchTerm) || description.includes(searchTerm)) {
+                if (filter === 'all') {
+                    row.style.display = '';
+                } else if (rowStatus === filter) {
                     row.style.display = '';
                 } else {
                     row.style.display = 'none';
                 }
             });
-        });
 
-        // Confirmation for publish/archive actions
-        document.querySelectorAll('form').forEach(form => {
-            form.addEventListener('submit', function(e) {
-                const button = this.querySelector('button[type="submit"]');
-                const action = button.textContent.trim();
-
-                if (!confirm(`Are you sure you want to ${action.toLowerCase()} this template?`)) {
-                    e.preventDefault();
-                }
-            });
+            // Clear search when filtering
+            document.getElementById('searchInput').value = '';
         });
-    </script>
-}
+    });
+
+    // Search functionality - FIXED
+    const searchInput = document.getElementById('searchInput');
+    searchInput.addEventListener('input', function() {
+        const searchTerm = this.value.toLowerCase().trim();
+        const rows = document.querySelectorAll('#templatesTable tbody tr');
+
+        rows.forEach(row => {
+            const name = row.querySelector('.template-name')?.textContent.toLowerCase() || '';
+            const description = row.querySelector('.template-description')?.textContent.toLowerCase() || '';
+            const status = row.dataset.status.toLowerCase();
+
+            const matches = name.includes(searchTerm) ||
+                           description.includes(searchTerm) ||
+                           status.includes(searchTerm);
+
+            row.style.display = matches ? '' : 'none';
+        });
+    });
+
+    // Confirmation for publish/archive actions
+    document.querySelectorAll('form').forEach(form => {
+        form.addEventListener('submit', function(e) {
+            const button = this.querySelector('button[type="submit"]');
+            const action = button.textContent.trim();
+
+            if (!confirm(`Are you sure you want to ${action.toLowerCase()} this template?`)) {
+                e.preventDefault();
+            }
+        });
+    });
+</script>

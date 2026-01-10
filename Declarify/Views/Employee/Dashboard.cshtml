@@ -10,8 +10,18 @@
     <title>My Dashboard - Declarify</title>
 
     <link href="~/css/employeedashboardcss.css" rel="stylesheet" />
+    <link href="~/css/empdashb.css" rel="stylesheet" />
 </head>
 <body>
+    <div class="page-loader" id="pageLoader">
+        <div class="spinner-container">
+            <div class="spinner-ring"></div>
+            <div class="spinner-ring"></div>
+        </div>
+        <p class="loader-text">Loading Dashboard...</p>
+        <p class="loader-subtext">Preparing your compliance overview</p>
+    </div>
+
     <div class="employee-dashboard">
         <div class="dashboard-container">
 
@@ -555,6 +565,19 @@
     
 
                 <script>
+                      // Page Loader
+        window.addEventListener('load', function() {
+            setTimeout(function() {
+                document.getElementById('pageLoader').classList.add('hidden');
+
+                // Trigger scroll reveal animations
+                setTimeout(function() {
+                    document.querySelectorAll('.scroll-reveal').forEach(function(el) {
+                        el.classList.add('revealed');
+                    });
+                }, 100);
+            }, 800);
+        });
                     // Profile Dropdown Toggle
                     const profileTrigger = document.getElementById('profileDropdownTrigger');
                     const profileDropdown = document.getElementById('profileDropdown');

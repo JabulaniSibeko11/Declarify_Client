@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="https://cdn.datatables.net/buttons/3.1.2/css/buttons.bootstrap5.min.css" />
 <link rel="stylesheet" href="https://cdn.datatables.net/responsive/3.0.3/css/responsive.bootstrap5.min.css" />
 <link href="~/css/managetemplate.css" rel="stylesheet" /> <!-- Reuse same CSS, or create manageemployees.css if needed -->
-<link href="~/css/admindashboardcss.css" rel="stylesheet" />
+<link href="~/css/admindashboardcss1.css" rel="stylesheet" />
 <div class="page-header">
     <div class="header-content">
         <h1 class="header-title">
@@ -161,53 +161,11 @@
     <script src="https://cdn.datatables.net/buttons/3.1.2/js/buttons.html5.min.js"></script>
     <script src="https://cdn.datatables.net/buttons/3.1.2/js/buttons.print.min.js"></script>
     <script src="https://cdn.datatables.net/responsive/3.0.3/js/dataTables.responsive.min.js"></script>
-   
-    <script>
-
-        // Search functionality
-        const searchInput = document.getElementById('searchInput');
-        searchInput.addEventListener('input', function () {
-            const term = this.value.toLowerCase();
-            const rows = document.querySelectorAll('#employeesTable tbody tr');
-
-            rows.forEach(row => {
-                const name = row.querySelector('.employee-name').textContent.toLowerCase();
-                const email = row.querySelector('.employee-email').textContent.toLowerCase();
-                const id = row.querySelector('.employee-id').textContent.toLowerCase();
-                const dept = row.cells[2].textContent.toLowerCase();
-                const position = row.cells[3].textContent.toLowerCase();
-
-                if (name.includes(term) || email.includes(term) || id.includes(term) || dept.includes(term) || position.includes(term)) {
-                    row.style.display = '';
-                } else {
-                    row.style.display = 'none';
-                }
-            });
-        });
-
-        // Filter by status
-        document.querySelectorAll('.filter-pill').forEach(pill => {
-            pill.addEventListener('click', function () {
-                document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
-                this.classList.add('active');
-
-                const filter = this.dataset.filter;
-                const rows = document.querySelectorAll('#employeesTable tbody tr');
-
-                rows.forEach(row => {
-                    if (filter === 'all' || row.dataset.status === filter) {
-                        row.style.display = '';
-                    } else {
-                        row.style.display = 'none';
-                    }
-                });
-            });
-        });
-    </script>
 
     <script>
         $(document).ready(function () {
-            const table = $('#employeesDataTable').DataTable({
+            // Initialize DataTable
+            const table = $('#employeesTable').DataTable({
                 responsive: true,
                 pageLength: 15,
                 lengthMenu: [10, 15, 25, 50, 100],
@@ -215,7 +173,7 @@
                 columnDefs: [
                     { responsivePriority: 1, targets: 0 }, // Name
                     { responsivePriority: 2, targets: -1 }, // Actions
-                    { responsivePriority: 3, targets: 1 }  // Email
+                    { responsivePriority: 3, targets: 4 }  // Status
                 ],
                 dom: 'Bfrtip',
                 buttons: [
@@ -242,7 +200,12 @@
                 }
             });
 
-            // Custom status filter pills
+            // Custom search box functionality
+            $('#searchInput').on('keyup', function () {
+                table.search(this.value).draw();
+            });
+
+            // Status filter pills - FIXED
             $('.filter-pill').on('click', function () {
                 $('.filter-pill').removeClass('active');
                 $(this).addClass('active');
@@ -250,14 +213,70 @@
                 const filter = $(this).data('filter');
 
                 if (filter === 'all') {
-                    table.column(5).search('').draw(); // clear status column filter
+                    // Clear status column filter and show all
+                    table.column(4).search('').draw();
                 } else {
-                    table.column(5).search(filter === 'active' ? 'Active' : 'Inactive', true, false).draw();
+                    // Filter by Active or Inactive (case-insensitive)
+                    const searchTerm = filter === 'active' ? 'Active' : 'Inactive';
+                    table.column(4).search('^' + searchTerm + '$', true, false).draw();
                 }
-            });
 
-            // Optional: make the global search more prominent if you want to keep custom search box
-            // $('.dataTables_filter input').addClass('form-control').css('width', '300px');
+                // Clear custom search input when filtering
+                $('#searchInput').val('');
+            });
         });
     </script>
 }
+
+<script>
+
+          const searchInput = document.getElementById('searchInput');
+    searchInput.addEventListener('input', function () {
+        const term = this.value.toLowerCase().trim();
+        const rows = document.querySelectorAll('#employeesTable tbody tr');
+
+        rows.forEach(row => {
+            const name = row.querySelector('.employee-name')?.textContent.toLowerCase() || '';
+            const email = row.querySelector('.employee-email')?.textContent.toLowerCase() || '';
+            const id = row.querySelector('.employee-id')?.textContent.toLowerCase() || '';
+            const dept = row.cells[2]?.textContent.toLowerCase() || '';
+            const position = row.cells[3]?.textContent.toLowerCase() || '';
+
+            const matches = name.includes(term) ||
+                           email.includes(term) ||
+                           id.includes(term) ||
+                           dept.includes(term) ||
+                           position.includes(term);
+
+            row.style.display = matches ? '' : 'none';
+        });
+    });
+
+    // Filter by status - FIXED
+    document.querySelectorAll('.filter-pill').forEach(pill => {
+        pill.addEventListener('click', function () {
+            // Remove active class from all pills
+            document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
+            // Add active class to clicked pill
+            this.classList.add('active');
+
+            const filter = this.dataset.filter.toLowerCase();
+            const rows = document.querySelectorAll('#employeesTable tbody tr');
+
+            rows.forEach(row => {
+                const rowStatus = row.dataset.status.toLowerCase(); // 'active' or 'inactive'
+
+                if (filter === 'all') {
+                    row.style.display = '';
+                } else if (rowStatus === filter) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            // Clear search when filtering
+            document.getElementById('searchInput').value = '';
+        });
+    });
+</script>

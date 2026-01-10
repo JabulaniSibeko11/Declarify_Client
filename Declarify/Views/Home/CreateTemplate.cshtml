@@ -11,7 +11,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Template Builder - Declarify</title>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link href="~/css/admindashboardcss.css" rel="stylesheet" />
+    <link href="~/css/admindashboardcss1.css" rel="stylesheet" />
     <link href="~/css/createtemplatecss1.css" rel="stylesheet" />
 </head>
 <body>
@@ -290,6 +290,7 @@
             </div>
         </div>
     </main>
+
     <!-- Add Field Modal -->
     <div class="modal-overlay" id="addFieldModal">
         <div class="modal-container add-field-modal-container">
@@ -410,50 +411,13 @@
         </div>
     </div>
 
-    <!-- Table Builder Modal -->
-    <div class="modal-overlay" id="tableBuilderModal">
-        <div class="modal-container table-builder-container">
-            <div class="modal-header">
-                <h2>🏗️ Build Table</h2>
-                <button class="modal-close" onclick="closeTableBuilder()">×</button>
-            </div>
-            <div class="modal-form">
-                <div class="form-group-wizard">
-                    <label>Table Label <span class="required-mark">*</span></label>
-                    <input type="text" id="tableLabel" placeholder="e.g., List of Directorships">
-                </div>
+    <!-- ✅ CRITICAL: Load scripts in correct order -->
+    <!-- 1. Advanced Table Builder (standalone module) -->
+    @* <script src="~/js/advancedTableBuilder.js"></script> *@
 
-                <div class="form-group-wizard">
-                    <label>Number of Columns <span class="required-mark">*</span></label>
-                    <input type="number" id="tableColumns" value="3" min="2" max="10" onchange="generateTableColumns()">
-                </div>
-
-                <div id="tableColumnsConfig">
-                    <!-- Column configurations will be inserted here -->
-                </div>
-
-                <div class="form-group-wizard">
-                    <label>Minimum Rows</label>
-                    <input type="number" id="tableMinRows" value="1" min="1" max="20">
-                    <small>Minimum number of rows employees must fill</small>
-                </div>
-
-                <div class="form-group-wizard">
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="tableAllowAddRows" checked>
-                        <span>Allow employees to add more rows</span>
-                    </label>
-                </div>
-
-                <div class="modal-actions">
-                    <button type="button" class="btn btn-ghost" onclick="closeTableBuilder()">Cancel</button>
-                    <button type="button" class="btn btn-primary" onclick="saveTableConfig()">Add Table</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script src="~/js/templatebuilderjs.js"></script>
-  
+    <script src="~/js/advancedtablebuilder.js"></script>
+    <!-- 2. Main Template Builder (depends on Advanced Table Builder) -->
+ @*    <script src="~/js/templatebuilderjs-updated.js"></script> *@
+    <script src="~/js/templatebuilder.js"></script>
 </body> 
 </html>

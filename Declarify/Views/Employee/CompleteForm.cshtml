@@ -20,6 +20,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link href="~/css/completeformcss1.css" rel="stylesheet" />
     <style>
+        /* ========================================
+                   SIMPLE TABLE STYLES
+                   ======================================== */
         .table-field {
             width: 100%;
             margin-top: 12px;
@@ -59,7 +62,12 @@
             border: none;
             border-radius: 6px;
             cursor: pointer;
+            font-weight: 500;
         }
+
+            .table-add-row-btn:hover {
+                background: #00a8b0;
+            }
 
         .table-row-delete {
             background: #ef4444;
@@ -68,28 +76,115 @@
             padding: 4px 12px;
             border-radius: 4px;
             cursor: pointer;
+            font-size: 13px;
         }
 
+            .table-row-delete:hover {
+                background: #dc2626;
+            }
+
+        /* ========================================
+                   ADVANCED TABLE STYLES
+                   ======================================== */
         .advanced-table-field {
             width: 100%;
             margin-top: 12px;
         }
 
-        .advanced-table-grid {
-            display: grid;
-            gap: 16px;
-            margin-top: 12px;
-        }
-
-        .advanced-table-row {
-            display: grid;
-            gap: 12px;
-            padding: 16px;
-            background: #f9fafb;
+        .advanced-table-container {
+            overflow-x: auto;
+            background: white;
             border-radius: 8px;
             border: 1px solid #e5e7eb;
         }
 
+        .advanced-table-field table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+        }
+
+        .advanced-table-field th {
+            background: #f3f4f6;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            border: 1px solid #e5e7eb;
+            color: #374151;
+        }
+
+        .advanced-table-field td {
+            padding: 10px 12px;
+            border: 1px solid #e5e7eb;
+            vertical-align: top;
+        }
+
+            /* Merged cells with column assignments */
+            .advanced-table-field td.assigned-cell {
+                background: white;
+                padding: 8px;
+            }
+
+                .advanced-table-field td.assigned-cell input {
+                    width: 100%;
+                    padding: 8px;
+                    border: 1px solid #d1d5db;
+                    border-radius: 4px;
+                }
+
+            .advanced-table-field td.header-cell {
+                background: #f3f4f6;
+                font-weight: 600;
+                color: #374151;
+            }
+
+        /* Input styling within advanced tables */
+        .advanced-table-field input[type="text"],
+        .advanced-table-field input[type="number"],
+        .advanced-table-field input[type="date"],
+        .advanced-table-field input[type="email"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .advanced-table-field input:focus {
+            outline: none;
+            border-color: #00C2CB;
+            box-shadow: 0 0 0 3px rgba(0, 194, 203, 0.1);
+        }
+
+        /* Empty cells (no column assigned) */
+        .advanced-table-field td.empty-cell {
+            background: #f9fafb;
+            text-align: center;
+            color: #9ca3af;
+            font-style: italic;
+        }
+
+        /* Help text for advanced tables */
+        .advanced-table-help {
+            margin-top: 8px;
+            padding: 12px;
+            background: #eff6ff;
+            border-left: 3px solid #3b82f6;
+            border-radius: 4px;
+            font-size: 13px;
+            color: #1e40af;
+        }
+
+        /* Row actions for advanced tables */
+        .advanced-table-actions {
+            margin-top: 12px;
+            display: flex;
+            gap: 8px;
+        }
+
+        /* ========================================
+                   OTHER FIELD STYLES
+                   ======================================== */
         .signature-field {
             margin-top: 12px;
             padding: 20px;
@@ -145,12 +240,14 @@
             </div>
         </div>
     </div>
+
     <div class="container">
         <div class="progress-container">
             <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
             <div class="progress-text" id="progressText">0% Complete</div>
         </div>
     </div>
+
     <div class="container form-wrapper">
         @if (TempData["Error"] != null)
         {
@@ -160,14 +257,17 @@
         {
             <div class="alert alert-warning"><span>This declaration has already been submitted.</span></div>
         }
+
         <div class="welcome-banner">
             <span class="welcome-text">Welcome back, <strong>@Model.EmployeeName</strong>!</span>
         </div>
+
         <form id="doiForm">
             <input type="hidden" id="taskToken" value="@token" />
             <input type="hidden" id="employeeSignatureData" value="@Model.EmployeeSignature" />
             <input type="hidden" id="employeeName" value="@Model.EmployeeName" />
             <input type="hidden" id="employeeEmail" value="@Model.EmployeeEmail" />
+
             <div class="form-card user-details-card">
                 <div class="section-header"><span class="section-number user-icon">👤</span><span>Your Details</span></div>
                 <div class="user-details-grid">
@@ -176,6 +276,7 @@
                     <div class="detail-item"><div class="detail-label">Employee ID</div><div class="detail-value">EMP-@Model.Task.EmployeeId.ToString("D5")</div></div>
                 </div>
             </div>
+
             @if (templateConfig?.Sections != null && templateConfig.Sections.Any())
             {
                 var orderedSections = templateConfig.Sections.OrderBy(s => s.SectionOrder).ToList();
@@ -189,6 +290,7 @@
                         {
                             <p class="section-description">@sec.Disclaimer</p>
                         }
+
                         @if (sec.Fields != null && sec.Fields.Any())
                         {
                             var orderedFields = sec.Fields.OrderBy(f => f.Order).ToList();
@@ -200,18 +302,17 @@
                                         case "heading":
                                             <h3 class="field-heading">@field.FieldLabel</h3>
                                             break;
+
                                         case "paragraph":
                                             <p class="field-paragraph">
-                                                @(!string.IsNullOrWhiteSpace(field.HelpText)
-                                                                        ? field.HelpText
-                                                                        : field.FieldLabel)
+                                                @(!string.IsNullOrWhiteSpace(field.HelpText) ? field.HelpText : field.FieldLabel)
                                             </p>
                                             break;
-
 
                                         case "divider":
                                             <hr class="field-divider" />
                                             break;
+
                                         case "text":
                                         case "email":
                                         case "number":
@@ -224,6 +325,7 @@
                                             }
                                             <input type="@field.FieldType" class="form-input" id="@field.FieldId" name="@field.FieldId" @(field.Required ? "required" : "") placeholder="@(field.Placeholder ?? $"Enter {field.FieldLabel.ToLower()}")" value="" />
                                             break;
+
                                         case "currency":
                                             <label class="form-label @(field.Required ? "required" : "")" for="@field.FieldId">@field.FieldLabel</label>
                                             <div style="position: relative;">
@@ -231,14 +333,17 @@
                                                 <input type="number" class="form-input" id="@field.FieldId" name="@field.FieldId" @(field.Required ? "required" : "") placeholder="0.00" step="0.01" style="padding-left: 32px;" />
                                             </div>
                                             break;
+
                                         case "date":
                                             <label class="form-label @(field.Required ? "required" : "")" for="@field.FieldId">@field.FieldLabel</label>
                                             <input type="date" class="form-input" id="@field.FieldId" name="@field.FieldId" @(field.Required ? "required" : "") />
                                             break;
+
                                         case "textarea":
                                             <label class="form-label @(field.Required ? "required" : "")" for="@field.FieldId">@field.FieldLabel</label>
                                             <textarea class="form-textarea" id="@field.FieldId" name="@field.FieldId" @(field.Required ? "required" : "") placeholder="@(field.Placeholder ?? "")"></textarea>
                                             break;
+
                                         case "select":
                                         case "dropdown":
                                             <label class="form-label @(field.Required ? "required" : "")" for="@field.FieldId">@field.FieldLabel</label>
@@ -253,6 +358,7 @@
                                                 }
                                             </select>
                                             break;
+
                                         case "checkbox":
                                             <div class="checkbox-group">
                                                 <div class="checkbox-item">
@@ -261,6 +367,7 @@
                                                 </div>
                                             </div>
                                             break;
+
                                         case "boolean":
                                             <label class="form-label @(field.Required ? "required" : "")">@field.FieldLabel</label>
                                             <div class="radio-group">
@@ -268,6 +375,7 @@
                                                 <div class="radio-item"><input type="radio" id="@($"{field.FieldId}-no")" name="@field.FieldId" value="No" /><label for="@($"{field.FieldId}-no")">No</label></div>
                                             </div>
                                             break;
+
                                         case "radio":
                                             <label class="form-label @(field.Required ? "required" : "")">@field.FieldLabel</label>
                                             <div class="radio-group">
@@ -285,22 +393,25 @@
                                                 }
                                             </div>
                                             break;
+
                                         case "file":
                                             <label class="form-label @(field.Required ? "required" : "")" for="@field.FieldId">@field.FieldLabel</label>
                                             <input type="file" class="form-input" id="@field.FieldId" name="@field.FieldId" @(field.Required ? "required" : "") accept="@(field.Validation?.FileTypes ?? ".pdf,.doc,.docx")" />
                                             <small>Max: @(field.Validation?.MaxSize ?? 5)MB</small>
                                             break;
+
                                         case "table":
-                                            <label class="form-label @(field.Required ? "required" : "")">
-                                                @field.FieldLabel
-                                            </label>
+                                            <label class="form-label @(field.Required ? "required" : "")">@field.FieldLabel</label>
+                                            @if (!string.IsNullOrEmpty(field.HelpText))
+                                            {
+                                                <small style="display: block; margin-bottom: 8px; color: #6b7280;">@field.HelpText</small>
+                                            }
 
                                             <div class="table-field" data-table-id="@field.FieldId">
                                                 <table id="table-@field.FieldId">
                                                     <thead>
                                                         <tr>
                                                             @{
-                                                                // Fallback columns when TableConfig is missing
                                                                 var columns = field.TableConfig?.Columns?.Any() == true
                                                                 ? field.TableConfig.Columns
                                                                 : new List<string> { "Description", "Details", "Value" };
@@ -341,63 +452,167 @@
                                                     </tbody>
                                                 </table>
 
-                                                <button type="button"
-                                                        class="table-add-row-btn"
-                                                        onclick="addTableRow(
-                                            '@field.FieldId',
-                                            @(field.TableConfig?.Columns?.Count ?? 3),
-                                            @field.Required.ToString().ToLower()
-                                        )">
-                                                    + Add Row
-                                                </button>
+                                                @if (field.TableConfig?.AllowAddRows != false)
+                                                {
+                                                    <button type="button"
+                                                            class="table-add-row-btn"
+                                                            onclick="addTableRow('@field.FieldId', @(field.TableConfig?.Columns?.Count ?? 3), @field.Required.ToString().ToLower())">
+                                                        + Add Row
+                                                    </button>
+                                                }
                                             </div>
                                             break;
-
-
 
                                         case "advancedtable":
                                             <label class="form-label @(field.Required ? "required" : "")">@field.FieldLabel</label>
-                                            <div class="advanced-table-field">
+                                            @if (!string.IsNullOrEmpty(field.HelpText))
+                                            {
+                                                <small style="display: block; margin-bottom: 8px; color: #6b7280;">@field.HelpText</small>
+                                            }
+
+                                            <div class="advanced-table-field" data-advanced-table-id="@field.FieldId">
                                                 @{
-                                                    var gridCols = field.GridColumns ?? 3;
-                                                    var numRows = field.Rows ?? 4;
+                                                    var cells = field.Cells ?? new List<CellConfig>();
+                                                    var visibleCells = cells.Where(c => !c.Hidden).OrderBy(c => c.Row).ThenBy(c => c.Col).ToList();
+                                                    var totalRows = (field.Rows ?? 4);
+                                                    var totalCols = (field.GridColumns ?? 3);
+
+                                                    // Separate header rows from data rows
+                                                    var headerRows = visibleCells.Where(c => c.IsHeader).GroupBy(c => c.Row).OrderBy(g => g.Key).ToList();
+                                                    var firstDataRow = headerRows.Any() ? headerRows.Max(g => g.Key) + 1 : 0;
+
+                                                    // Get all assigned columns from the template
+                                                    var assignedColumns = field.Columns ?? new List<ColumnConfig>();
                                                 }
-                                                <div class="advanced-table-grid" style="grid-template-columns: repeat(@gridCols, 1fr);">
-                                                    @for (int rowIdx = 0; rowIdx < numRows; rowIdx++)
-                                                    {
-                                                        <div class="advanced-table-row" style="grid-column: 1 / -1;">
-                                                            <h4>Row @(rowIdx + 1)</h4>
-                                                            <div style="display: grid; grid-template-columns: repeat(@gridCols, 1fr); gap: 12px;">
-                                                                @if (field.Columns != null && field.Columns.Any())
+
+                                                <div class="advanced-table-container">
+                                                    <table id="advTable-@field.FieldId">
+                                                        <!-- Render header rows exactly as designed -->
+                                                        @foreach (var headerRowGroup in headerRows)
+                                                        {
+                                                            <tr>
+                                                                @foreach (var cell in headerRowGroup.OrderBy(c => c.Col))
                                                                 {
-                                                                    foreach (var column in field.Columns)
-                                                                    {
-                                                                        <div>
-                                                                            <label style="display: block; margin-bottom: 4px; font-size: 13px;">@column.Name</label>
-                                                                            @switch (column.Type?.ToLower())
-                                                                            {
-                                                                                case "number":
-                                                                                    <input type="number" name="@($"{field.FieldId}_row{rowIdx}_{column.Name}")" @(field.Required && rowIdx == 0 ? "required" : "") />
-                                                                                    break;
-                                                                                case "date":
-                                                                                    <input type="date" name="@($"{field.FieldId}_row{rowIdx}_{column.Name}")" @(field.Required && rowIdx == 0 ? "required" : "") />
-                                                                                    break;
-                                                                                case "email":
-                                                                                    <input type="email" name="@($"{field.FieldId}_row{rowIdx}_{column.Name}")" @(field.Required && rowIdx == 0 ? "required" : "") />
-                                                                                    break;
-                                                                                default:
-                                                                                    <input type="text" name="@($"{field.FieldId}_row{rowIdx}_{column.Name}")" @(field.Required && rowIdx == 0 ? "required" : "") />
-                                                                                    break;
-                                                                            }
-                                                                        </div>
-                                                                    }
+                                                                    <th class="header-cell"
+                                                                        rowspan="@cell.Rowspan"
+                                                                        colspan="@cell.Colspan">
+                                                                        @(cell.ColumnName ?? "")
+                                                                    </th>
                                                                 }
-                                                            </div>
-                                                        </div>
-                                                    }
+                                                            </tr>
+                                                        }
+
+                                                      
+                                                        <!-- Data rows tbody - users can add rows here -->
+                                                        <tbody id="advTbody-@field.FieldId">
+                                                            @{
+                                                                // Identify different row types based on template
+                                                                var repeatableRows = new List<int>();
+                                                                var fixedRows = new List<int>();
+
+                                                                // Find which rows are meant for repeatable data entry
+                                                                // Row 2 (index 2) is the data entry row that can be repeated
+                                                                var dataEntryRow = visibleCells.Where(c => c.Row == 2 && !c.IsHeader).ToList();
+
+                                                                // Start with 1 data entry row
+                                                                var minDataRows = 1;
+                                                                for (int dataRowIdx = 0; dataRowIdx < minDataRows; dataRowIdx++)
+                                                                {
+                                                                    <tr class="advanced-table-data-row" data-template-row="2">
+                                                                        @for (int col = 0; col < totalCols; col++)
+                                                                        {
+                                                                            var templateCell = dataEntryRow.FirstOrDefault(c => c.Col == col);
+
+                                                                            if (templateCell != null)
+                                                                            {
+                                                                                // This cell exists in the template - render it
+                                                                                var column = assignedColumns.FirstOrDefault(c => c.Name == templateCell.ColumnName);
+                                                                                var inputType = "text";
+
+                                                                                if (column != null)
+                                                                                {
+                                                                                    inputType = column.Type?.ToLower() switch
+                                                                                    {
+                                                                                        "number" => "number",
+                                                                                        "date" => "date",
+                                                                                        "email" => "email",
+                                                                                        _ => "text"
+                                                                                    };
+                                                                                }
+
+                                                                                <td class="assigned-cell">
+                                                                                    <input type="@inputType"
+                                                                                           name="@($"{field.FieldId}_datarow{dataRowIdx}_col{col}")"
+                                                                                           placeholder=""
+                                                                                           @(field.Required && dataRowIdx == 0 ? "required" : "") />
+                                                                                </td>
+                                                                            }
+                                                                        }
+                                                                        <td style="width: 80px; text-align: center;">
+                                                                            <button type="button"
+                                                                                    class="table-row-delete"
+                                                                                    onclick="deleteAdvancedTableRow(this)">
+                                                                                Delete
+                                                                            </button>
+                                                                        </td>
+                                                                    </tr>
+                                                                }
+                                                            }
+                                                        </tbody>
+
+                                                        <!-- Fixed footer rows (questions that appear once) -->
+                                                        @{
+                                                            // Render rows 3 and 4 (the arrears questions) as fixed rows
+                                                            var footerRows = visibleCells.Where(c => c.Row >= 3 && !c.IsHeader)
+                                                            .GroupBy(c => c.Row)
+                                                            .OrderBy(g => g.Key)
+                                                            .ToList();
+
+                                                            foreach (var footerRowGroup in footerRows)
+                                                            {
+                                                                <tr class="advanced-table-footer-row">
+                                                                    @foreach (var cell in footerRowGroup.OrderBy(c => c.Col))
+                                                                    {
+                                                                        var column = assignedColumns.FirstOrDefault(c => c.Name == cell.ColumnName);
+                                                                        var inputType = "text";
+
+                                                                        if (column != null)
+                                                                        {
+                                                                            inputType = column.Type?.ToLower() switch
+                                                                            {
+                                                                                "number" => "number",
+                                                                                "date" => "date",
+                                                                                "email" => "email",
+                                                                                _ => "text"
+                                                                            };
+                                                                        }
+
+                                                                        <td class="assigned-cell"
+                                                                            rowspan="@cell.Rowspan"
+                                                                            colspan="@cell.Colspan">
+                                                                            <strong>@cell.ColumnName</strong>
+                                                                            <input type="@inputType"
+                                                                                   name="@($"{field.FieldId}_fixedrow{cell.Row}_col{cell.Col}")"
+                                                                                   placeholder=""
+                                                                                   style="margin-top: 8px;"
+                                                                                   @(field.Required ? "required" : "") />
+                                                                        </td>
+                                                                    }
+                                                                    <td style="width: 80px;"></td>
+                                                                </tr>
+                                                            }
+                                                        }
+                                                    </table>
+
+                                                    <button type="button"
+                                                            class="table-add-row-btn"
+                                                            onclick="addAdvancedTableRow('@field.FieldId')">
+                                                        + Add Row
+                                                    </button>
                                                 </div>
                                             </div>
                                             break;
+
                                         case "signature":
                                             <label class="form-label @(field.Required ? "required" : "")">@field.FieldLabel</label>
                                             <div class="signature-field">
@@ -413,6 +628,7 @@
                     </div>
                 }
             }
+
             @if (Model.CanSubmit)
             {
                 <div class="action-buttons">
@@ -422,6 +638,7 @@
             }
         </form>
     </div>
+
     <div class="modal-overlay" id="attestationModal">
         <div class="attestation-modal">
             <div class="modal-header">
@@ -454,14 +671,16 @@
             </div>
         </div>
     </div>
+
     <div class="loading-overlay" id="loadingOverlay"><div class="loading-spinner"></div></div>
     <div class="autosave-indicator" id="autosaveIndicator"><div class="autosave-dot"></div><span>Draft saved</span></div>
+
     <script>
         let autoSaveTimer = null;
         let tableRowCounters = {};
         const draftData = @Html.Raw(JsonSerializer.Serialize(draftData));
 
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             initializeForm();
             loadDraftData();
             updateProgress();
@@ -487,7 +706,7 @@
         function setupAttestationModal() {
             const checkbox = document.getElementById('modalAttestationCheck');
             const confirmBtn = document.getElementById('confirmSubmitBtn');
-            checkbox.addEventListener('change', function() {
+            checkbox.addEventListener('change', function () {
                 confirmBtn.disabled = !this.checked;
             });
         }
@@ -561,7 +780,7 @@
         }
 
         function setupAutoSave() {
-            document.getElementById('doiForm').addEventListener('input', function() {
+            document.getElementById('doiForm').addEventListener('input', function () {
                 clearTimeout(autoSaveTimer);
                 autoSaveTimer = setTimeout(saveDraft, 3000);
             });
@@ -590,7 +809,7 @@
         function collectFormData() {
             const formData = {};
             document.querySelectorAll('#doiForm input, #doiForm select, #doiForm textarea').forEach(field => {
-                if (field.name && !['taskToken','employeeSignatureData','employeeName','employeeEmail','modalAttestationCheck'].includes(field.id)) {
+                if (field.name && !['taskToken', 'employeeSignatureData', 'employeeName', 'employeeEmail', 'modalAttestationCheck'].includes(field.id)) {
                     if (field.type === 'checkbox') {
                         formData[field.name] = field.checked;
                     } else if (field.type === 'radio') {
@@ -645,7 +864,113 @@
             if (row && confirm('Delete this row?')) row.remove();
         }
 
-        document.getElementById('attestationModal').addEventListener('click', function(e) {
+        // Advanced Table Row Management
+        let advancedTableRowCounters = {};
+
+        function initializeAdvancedTableCounters() {
+            document.querySelectorAll('[data-advanced-table-id]').forEach(table => {
+                const tableId = table.dataset.advancedTableId;
+                const tbody = document.getElementById(`advTbody-${tableId}`);
+                if (tbody) advancedTableRowCounters[tableId] = tbody.querySelectorAll('tr').length;
+            });
+        }
+
+        function addAdvancedTableRow(tableId) {
+            const tbody = document.getElementById(`advTbody-${tableId}`);
+            if (!tbody) {
+                console.error('tbody not found for', tableId);
+                return;
+            }
+
+            // Get the first row as template
+            const firstRow = tbody.querySelector('tr.advanced-table-data-row');
+            if (!firstRow) {
+                console.error('No template row found');
+                return;
+            }
+
+            // Initialize counter if needed
+            if (!advancedTableRowCounters[tableId]) {
+                advancedTableRowCounters[tableId] = tbody.querySelectorAll('tr').length;
+            }
+
+            const rowIndex = advancedTableRowCounters[tableId]++;
+
+            // Clone the first row
+            const newRow = document.createElement('tr');
+            newRow.className = 'advanced-table-data-row';
+
+            // Get all cells except the delete button cell
+            const cells = firstRow.querySelectorAll('td:not(:last-child)');
+
+            cells.forEach((cell, idx) => {
+                const newCell = document.createElement('td');
+                newCell.className = cell.className;
+
+                // Copy rowspan and colspan
+                if (cell.hasAttribute('rowspan')) {
+                    newCell.setAttribute('rowspan', cell.getAttribute('rowspan'));
+                }
+                if (cell.hasAttribute('colspan')) {
+                    newCell.setAttribute('colspan', cell.getAttribute('colspan'));
+                }
+
+                // Check if this cell has an input
+                const input = cell.querySelector('input');
+                if (input) {
+                    // Create new input with same type
+                    const newInput = document.createElement('input');
+                    newInput.type = input.type;
+                    newInput.name = input.name.replace(/_row\d+_/, `_row${rowIndex}_`);
+                    newInput.placeholder = input.placeholder;
+                    // Don't copy required attribute for new rows
+                    newCell.appendChild(newInput);
+                } else {
+                    // Copy the dash or empty content
+                    newCell.innerHTML = cell.innerHTML;
+                }
+
+                newRow.appendChild(newCell);
+            });
+
+            // Add delete button cell
+            const deleteCell = document.createElement('td');
+            deleteCell.style.width = '80px';
+            deleteCell.style.textAlign = 'center';
+            deleteCell.innerHTML = `<button type="button" class="table-row-delete" onclick="deleteAdvancedTableRow(this)">Delete</button>`;
+            newRow.appendChild(deleteCell);
+
+            tbody.appendChild(newRow);
+        }
+
+        function deleteAdvancedTableRow(button) {
+            const row = button.closest('tr');
+            const tbody = row?.closest('tbody');
+
+            if (!tbody) return;
+
+            // Don't allow deleting the last row
+            if (tbody.querySelectorAll('tr').length <= 1) {
+                alert('⚠️ Cannot delete the last row');
+                return;
+            }
+
+            if (confirm('Delete this row?')) {
+                row.remove();
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeForm();
+            loadDraftData();
+            updateProgress();
+            setupAutoSave();
+            setupAttestationModal();
+            initializeTableCounters();
+            initializeAdvancedTableCounters(); // Initialize advanced table counters
+        });
+
+        document.getElementById('attestationModal').addEventListener('click', function (e) {
             if (e.target === this) closeAttestationModal();
         });
     </script>
@@ -669,12 +994,11 @@
 
     public class FieldConfig
     {
-        public string FieldId { get; set; } 
-        public string? FieldLabel { get; set; } 
-        public string? FieldType { get; set; } 
+        public string FieldId { get; set; }
+        public string? FieldLabel { get; set; }
+        public string? FieldType { get; set; }
         public bool Required { get; set; }
         public int Order { get; set; }
-
         public string? ConditionalOn { get; set; }
         public List<string>? Options { get; set; }
         public string? Placeholder { get; set; }
@@ -683,6 +1007,7 @@
         public List<ColumnConfig>? Columns { get; set; }
         public int? Rows { get; set; }
         public int? GridColumns { get; set; }
+        public List<CellConfig>? Cells { get; set; }
         public ValidationConfig? Validation { get; set; }
     }
 
@@ -695,8 +1020,21 @@
 
     public class ColumnConfig
     {
-        public string? Name { get; set; } 
-        public string Type { get; set; } 
+        public string? Name { get; set; }
+        public string Type { get; set; }
+    }
+
+    public class CellConfig
+    {
+        public int Row { get; set; }
+        public int Col { get; set; }
+        public int Rowspan { get; set; }
+        public int Colspan { get; set; }
+        public string? ColumnId { get; set; }
+        public string? ColumnName { get; set; }
+        public bool IsHeader { get; set; }
+        public bool IsMerged { get; set; }
+        public bool Hidden { get; set; }
     }
 
     public class ValidationConfig

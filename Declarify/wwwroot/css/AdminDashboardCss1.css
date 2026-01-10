@@ -89,6 +89,7 @@ body {
     overflow: hidden;
 }
 
+
     .logo-circle::before {
         content: '✓';
         font-size: 28px;
@@ -104,6 +105,11 @@ body {
         inset: 0;
         background: radial-gradient(circle at 30% 30%, rgba(0, 194, 203, 0.3) 0%, transparent 70%);
     }
+.logo-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
 
 .brand-text {
     display: flex;
@@ -2623,3 +2629,215 @@ main {
         transform: translateY(0);
     }
 }
+
+/* Loader Styles with Brand Colors */
+.page-loader {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    opacity: 1;
+    transition: opacity 0.5s ease-out;
+}
+
+    .page-loader.hidden {
+        opacity: 0;
+        pointer-events: none;
+    }
+
+.spinner {
+    --clr: var(--color-accent);
+    --gap: 6px;
+    width: 100px;
+    height: 100px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: var(--gap);
+}
+
+    .spinner span {
+        width: 20px;
+        height: 20px;
+        border-radius: 100%;
+        background-color: var(--clr);
+        opacity: 0;
+    }
+
+        .spinner span:nth-child(1) {
+            animation: fade 1s ease-in-out infinite;
+        }
+
+        .spinner span:nth-child(2) {
+            animation: fade 1s ease-in-out 0.33s infinite;
+        }
+
+        .spinner span:nth-child(3) {
+            animation: fade 1s ease-in-out 0.66s infinite;
+        }
+
+@keyframes fade {
+    0%, 100% {
+        opacity: 1;
+    }
+
+    60% {
+        opacity: 0;
+    }
+}
+
+.loader-text {
+    margin-top: 1.5rem;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 600;
+    font-size: 1rem;
+    color: var(--color-primary);
+}
+
+
+/* Dropdown styles for admin header */
+.employee-trigger {
+    position: relative;
+    cursor: pointer;
+}
+
+.admin-dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+    min-width: 280px;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-10px);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 1000;
+    overflow: hidden;
+}
+
+    .admin-dropdown.active {
+        opacity: 1;
+        visibility: visible;
+        transform: translateY(0);
+    }
+
+.dropdown-header {
+    padding: 20px;
+    border-bottom: 1px solid #E5E7EB;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.dropdown-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667EEA 0%, #764BA2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 600;
+    font-size: 1.125rem;
+}
+
+.dropdown-header h4 {
+    margin: 0;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: #1F2937;
+}
+
+.dropdown-header p {
+    margin: 4px 0 0 0;
+    font-size: 0.8125rem;
+    color: #6B7280;
+}
+
+.dropdown-divider {
+    height: 1px;
+    background: #E5E7EB;
+    margin: 0;
+}
+
+.dropdown-section {
+    padding: 8px;
+}
+
+.dropdown-section-label {
+    padding: 8px 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #6B7280;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 8px;
+    color: #374151;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+    .dropdown-item:hover {
+        background: #F3F4F6;
+        color: #667EEA;
+    }
+
+    .dropdown-item.active {
+        background: #EEF2FF;
+        color: #667EEA;
+    }
+
+    .dropdown-item.logout {
+        color: #EF4444;
+    }
+
+        .dropdown-item.logout:hover {
+            background: #FEE2E2;
+            color: #DC2626;
+        }
+
+.dropdown-icon {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+}
+
+.dropdown-item span:not(.dropdown-badge) {
+    flex: 1;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.dropdown-badge {
+    padding: 2px 8px;
+    background: #DBEAFE;
+    color: #1E40AF;
+    border-radius: 12px;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    margin-left: auto;
+}
+
+    .dropdown-badge.warning {
+        background: #FEF3C7;
+        color: #92400E;
+    }

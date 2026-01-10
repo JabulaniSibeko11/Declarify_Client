@@ -37,7 +37,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Review Declaration - Declarify</title>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link href="~/css/reviewpage1.css" rel="stylesheet" />
+    <link href="~/css/completeformcss1.css" rel="stylesheet" />
+    <link href="~/css/reviewcss.css" rel="stylesheet" />
 </head>
 <body>
     <!-- Hero Header -->
@@ -47,7 +48,7 @@
                 <h1 class="hero-title">
                     Review & <span class="accent">Sign-Off</span>
                 </h1>
-                <p class="hero-subtitle">
+                <p style="opacity: 0.9; font-size: 1.1rem;">
                     Declaration submitted by @Model.EmployeeName on @Model.SubmittedDate.ToString("MMMM dd, yyyy")
                 </p>
 
@@ -71,28 +72,19 @@
 
     <!-- Main Split Layout -->
     <div class="container review-container">
-        <!-- Left Panel - Form with Answers -->
+        <!-- Left Panel - Form with Answers (Disabled) -->
         <div class="form-panel">
             <!-- Welcome Banner -->
             <div class="welcome-banner">
-                <svg class="welcome-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
                 <span class="welcome-text">Reviewing submission from <strong>@Model.EmployeeName</strong></span>
             </div>
 
             <!-- Employee Details Section -->
             <div class="form-card user-details-card">
                 <div class="section-header">
-                    <span class="section-number user-icon">
-                        <svg style="width: 24px; height: 24px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                        </svg>
-                    </span>
+                    <span class="section-number user-icon">👤</span>
                     <span>Employee Details</span>
                 </div>
-                <p class="section-description">Information from the employee's profile</p>
-
                 <div class="user-details-grid">
                     <div class="detail-item">
                         <div class="detail-label">Full Name</div>
@@ -113,7 +105,7 @@
                 </div>
             </div>
 
-            <!-- Form Sections with Submitted Data -->
+            <!-- Form Sections with Submitted Data (All Disabled) -->
             @if (templateConfig?.Sections != null && templateConfig.Sections.Any())
             {
                 var orderedSections = templateConfig.Sections.OrderBy(s => s.SectionOrder).ToList();
@@ -140,108 +132,404 @@
 
                             foreach (var field in orderedFields)
                             {
-                                // Get the submitted value for this field
-                                string fieldValue = "";
-                                if (formData.TryGetValue(field.FieldId, out JsonElement valueElement))
-                                {
-                                    fieldValue = valueElement.ValueKind switch
-                                    {
-                                        JsonValueKind.String => valueElement.GetString() ?? "",
-                                        JsonValueKind.True => "true",
-                                        JsonValueKind.False => "false",
-                                        JsonValueKind.Number => valueElement.ToString(),
-                                        _ => valueElement.ToString()
-                                    };
-                                }
-
                                 <div class="form-group" data-field-id="@field.FieldId">
                                     @switch (field.FieldType.ToLower())
                                     {
+                                        case "heading":
+                                            <h3 class="field-heading">@field.FieldLabel</h3>
+                                            break;
+
+                                        case "paragraph":
+                                            <p class="field-paragraph">
+                                                @(!string.IsNullOrWhiteSpace(field.HelpText) ? field.HelpText : field.FieldLabel)
+                                            </p>
+                                            break;
+
+                                        case "divider":
+                                            <hr class="field-divider" />
+                                            break;
+
                                         case "text":
                                         case "email":
                                         case "number":
-                                            <label class="form-label @(field.Required ? "required" : "")" for="@field.FieldId">
-                                                @field.FieldLabel
-                                            </label>
-                                            <div class="field-display @(string.IsNullOrWhiteSpace(fieldValue) ? "empty" : "")">
-                                                @(string.IsNullOrWhiteSpace(fieldValue) ? "No information provided" : fieldValue)
+                                        case "phone":
+                                        case "url":
+                                            
+                                                var textValue = "";
+                                                if (formData.TryGetValue(field.FieldId, out JsonElement textElement))
+                                                {
+                                                    textValue = textElement.ValueKind == JsonValueKind.String ? textElement.GetString() ?? "" : textElement.ToString();
+                                                }
+                                            
+                                            <label class="form-label @(field.Required ? "required" : "")" for="@field.FieldId">@field.FieldLabel</label>
+                                            @if (!string.IsNullOrEmpty(field.HelpText))
+                                            {
+                                                <small style="display: block; margin-bottom: 8px; color: #6b7280;">@field.HelpText</small>
+                                            }
+                                            <input type="@field.FieldType" class="form-input" id="@field.FieldId" value="@textValue" disabled />
+                                            break;
+
+                                        case "currency":
+                                           
+                                                var currencyValue = "";
+                                                if (formData.TryGetValue(field.FieldId, out JsonElement currElement))
+                                                {
+                                                    currencyValue = currElement.ValueKind == JsonValueKind.String ? currElement.GetString() ?? "" : currElement.ToString();
+                                                }
+                                            
+                                            <label class="form-label @(field.Required ? "required" : "")" for="@field.FieldId">@field.FieldLabel</label>
+                                            <div style="position: relative;">
+                                                <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #6b7280;">R</span>
+                                                <input type="number" class="form-input" id="@field.FieldId" value="@currencyValue" step="0.01" style="padding-left: 32px;" disabled />
                                             </div>
                                             break;
 
                                         case "date":
-                                            <label class="form-label @(field.Required ? "required" : "")" for="@field.FieldId">
-                                                @field.FieldLabel
-                                            </label>
-                                            <div class="field-display @(string.IsNullOrWhiteSpace(fieldValue) ? "empty" : "")">
-                                                @if (!string.IsNullOrWhiteSpace(fieldValue) && DateTime.TryParse(fieldValue, out DateTime dateValue))
+                                            
+                                                var dateValue = "";
+                                                if (formData.TryGetValue(field.FieldId, out JsonElement dateElement))
                                                 {
-                                                    @dateValue.ToString("MMMM dd, yyyy")
+                                                    dateValue = dateElement.ValueKind == JsonValueKind.String ? dateElement.GetString() ?? "" : dateElement.ToString();
                                                 }
-                                                else
-                                                {
-                                                    <text>No date provided</text>
-                                                }
-                                            </div>
+                                            
+                                            <label class="form-label @(field.Required ? "required" : "")" for="@field.FieldId">@field.FieldLabel</label>
+                                            <input type="date" class="form-input" id="@field.FieldId" value="@dateValue" disabled />
                                             break;
 
                                         case "textarea":
-                                            <label class="form-label @(field.Required ? "required" : "")" for="@field.FieldId">
-                                                @field.FieldLabel
-                                            </label>
-                                            <div class="field-display @(string.IsNullOrWhiteSpace(fieldValue) ? "empty" : "")" style="white-space: pre-wrap;">
-                                                @(string.IsNullOrWhiteSpace(fieldValue) ? "No information provided" : fieldValue)
-                                            </div>
+                                            
+                                                var textareaValue = "";
+                                                if (formData.TryGetValue(field.FieldId, out JsonElement textareaElement))
+                                                {
+                                                    textareaValue = textareaElement.ValueKind == JsonValueKind.String ? textareaElement.GetString() ?? "" : textareaElement.ToString();
+                                                }
+                                            
+                                            <label class="form-label @(field.Required ? "required" : "")" for="@field.FieldId">@field.FieldLabel</label>
+                                            <textarea class="form-textarea" id="@field.FieldId" disabled>@textareaValue</textarea>
                                             break;
 
                                         case "select":
                                         case "dropdown":
-                                            <label class="form-label @(field.Required ? "required" : "")" for="@field.FieldId">
-                                                @field.FieldLabel
-                                            </label>
-                                            <div class="field-display @(string.IsNullOrWhiteSpace(fieldValue) ? "empty" : "")">
-                                                @(string.IsNullOrWhiteSpace(fieldValue) ? "No selection made" : fieldValue)
-                                            </div>
+                                            
+                                                var selectValue = "";
+                                                if (formData.TryGetValue(field.FieldId, out JsonElement selectElement))
+                                                {
+                                                    selectValue = selectElement.ValueKind == JsonValueKind.String ? selectElement.GetString() ?? "" : selectElement.ToString();
+                                                }
+                                            
+                                            <label class="form-label @(field.Required ? "required" : "")" for="@field.FieldId">@field.FieldLabel</label>
+                                            <select class="form-select" id="@field.FieldId" disabled>
+                                                <option value="">Select...</option>
+                                                @if (field.Options != null && field.Options.Any())
+                                                {
+                                                    foreach (var option in field.Options)
+                                                    {
+                                                        <option value="@option" selected="@(option == selectValue)">@option</option>
+                                                    }
+                                                }
+                                            </select>
                                             break;
 
                                         case "checkbox":
                                             
-                                                var isChecked = fieldValue?.ToLower() == "true";
+                                                var isChecked = false;
+                                                if (formData.TryGetValue(field.FieldId, out JsonElement checkElement))
+                                                {
+                                                    isChecked = checkElement.ValueKind == JsonValueKind.True || 
+                                                               (checkElement.ValueKind == JsonValueKind.String && checkElement.GetString()?.ToLower() == "true");
+                                                }
                                             
-                                            @if (isChecked)
-                                            {
-                                                <div class="checkbox-display">
-                                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                    </svg>
-                                                    <span><strong>@field.FieldLabel</strong></span>
+                                            <div class="checkbox-group">
+                                                <div class="checkbox-item">
+                                                    <input type="checkbox" id="@field.FieldId" checked="@isChecked" disabled />
+                                                    <label for="@field.FieldId">@field.FieldLabel</label>
                                                 </div>
-                                            }
-                                            else
-                                            {
-                                                <div class="field-display empty">
-                                                    ☐ @field.FieldLabel (Not checked)
+                                            </div>
+                                            break;
+
+                                        case "boolean":
+                                            
+                                                var boolValue = "";
+                                                if (formData.TryGetValue(field.FieldId, out JsonElement boolElement))
+                                                {
+                                                    boolValue = boolElement.ValueKind == JsonValueKind.String ? boolElement.GetString() ?? "" : boolElement.ToString();
+                                                }
+                                            
+                                            <label class="form-label @(field.Required ? "required" : "")">@field.FieldLabel</label>
+                                            <div class="radio-group">
+                                                <div class="radio-item">
+                                                    <input type="radio" id="@($"{field.FieldId}-yes")" name="@field.FieldId" value="Yes" checked="@(boolValue == "Yes")" disabled />
+                                                    <label for="@($"{field.FieldId}-yes")">Yes</label>
                                                 </div>
-                                            }
+                                                <div class="radio-item">
+                                                    <input type="radio" id="@($"{field.FieldId}-no")" name="@field.FieldId" value="No" checked="@(boolValue == "No")" disabled />
+                                                    <label for="@($"{field.FieldId}-no")">No</label>
+                                                </div>
+                                            </div>
                                             break;
 
                                         case "radio":
-                                            <label class="form-label @(field.Required ? "required" : "")">
-                                                @field.FieldLabel
-                                            </label>
-                                            @if (!string.IsNullOrWhiteSpace(fieldValue))
-                                            {
-                                                <div class="radio-display">
-                                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                    </svg>
-                                                    <span>@fieldValue</span>
-                                                </div>
-                                            }
-                                            else
-                                            {
-                                                <div class="field-display empty">No selection made</div>
-                                            }
+                                            
+                                                var radioValue = "";
+                                                if (formData.TryGetValue(field.FieldId, out JsonElement radioElement))
+                                                {
+                                                    radioValue = radioElement.ValueKind == JsonValueKind.String ? radioElement.GetString() ?? "" : radioElement.ToString();
+                                                }
+                                            
+                                            <label class="form-label @(field.Required ? "required" : "")">@field.FieldLabel</label>
+                                            <div class="radio-group">
+                                                @if (field.Options != null && field.Options.Any())
+                                                {
+                                                    for (int optIdx = 0; optIdx < field.Options.Count; optIdx++)
+                                                    {
+                                                        var option = field.Options[optIdx];
+                                                        var radioId = $"{field.FieldId}_option{optIdx}";
+                                                        <div class="radio-item">
+                                                            <input type="radio" id="@radioId" name="@field.FieldId" value="@option" checked="@(option == radioValue)" disabled />
+                                                            <label for="@radioId">@option</label>
+                                                        </div>
+                                                    }
+                                                }
+                                            </div>
                                             break;
+
+                                        case "file":
+                                            
+                                                var fileValue = "";
+                                                if (formData.TryGetValue(field.FieldId, out JsonElement fileElement))
+                                                {
+                                                    fileValue = fileElement.ValueKind == JsonValueKind.String ? fileElement.GetString() ?? "" : fileElement.ToString();
+                                                }
+                                            
+                                            <label class="form-label @(field.Required ? "required" : "")" for="@field.FieldId">@field.FieldLabel</label>
+                                            <input type="text" class="form-input" value="@(!string.IsNullOrEmpty(fileValue) ? fileValue : "No file uploaded")" disabled />
+                                            break;
+
+                                        case "table":
+                                            <label class="form-label @(field.Required ? "required" : "")">@field.FieldLabel</label>
+                                            @if (!string.IsNullOrEmpty(field.HelpText))
+                                            {
+                                                <small style="display: block; margin-bottom: 8px; color: #6b7280;">@field.HelpText</small>
+                                            }
+
+                                            <div class="table-field" data-table-id="@field.FieldId">
+                                                <table id="table-@field.FieldId">
+                                                    <thead>
+                                                        <tr>
+                                                            @{
+                                                                var columns = field.TableConfig?.Columns?.Any() == true
+                                                                ? field.TableConfig.Columns
+                                                                : new List<string> { "Description", "Details", "Value" };
+
+                                                                foreach (var column in columns)
+                                                                {
+                                                                    <th>@column</th>
+                                                                }
+                                                            }
+                                                        </tr>
+                                                    </thead>
+
+                                                    <tbody id="tbody-@field.FieldId">
+                                                        @{
+                                                            // Collect all table data for this field
+                                                            var tableData = formData.Where(kvp => kvp.Key.StartsWith(field.FieldId + "_row"))
+                                                                                    .OrderBy(kvp => kvp.Key)
+                                                                                    .ToList();
+
+                                                            // Group by row
+                                                            var rowGroups = tableData.GroupBy(kvp => {
+                                                                var match = System.Text.RegularExpressions.Regex.Match(kvp.Key, @"_row(\d+)_");
+                                                                return match.Success ? int.Parse(match.Groups[1].Value) : -1;
+                                                            }).Where(g => g.Key >= 0).OrderBy(g => g.Key);
+
+                                                            foreach (var rowGroup in rowGroups)
+                                                            {
+                                                                <tr class="table-row">
+                                                                    @for (int colIdx = 0; colIdx < columns.Count; colIdx++)
+                                                                    {
+                                                                        var cellKey = $"{field.FieldId}_row{rowGroup.Key}_col{colIdx}";
+                                                                        var cellValue = "";
+                                                                        if (formData.TryGetValue(cellKey, out JsonElement cellElement))
+                                                                        {
+                                                                            cellValue = cellElement.ValueKind == JsonValueKind.String ? cellElement.GetString() ?? "" : cellElement.ToString();
+                                                                        }
+                                                                        <td>
+                                                                            <input type="text" value="@cellValue" disabled />
+                                                                        </td>
+                                                                    }
+                                                                </tr>
+                                                            }
+                                                        }
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                            break;
+
+                                        case "advancedtable":
+                                            <label class="form-label @(field.Required ? "required" : "")">@field.FieldLabel</label>
+                                            @if (!string.IsNullOrEmpty(field.HelpText))
+                                            {
+                                                <small style="display: block; margin-bottom: 8px; color: #6b7280;">@field.HelpText</small>
+                                            }
+
+                                            <div class="advanced-table-field" data-advanced-table-id="@field.FieldId">
+                                                @{
+                                                    var cells = field.Cells ?? new List<CellConfig>();
+                                                    var visibleCells = cells.Where(c => !c.Hidden).OrderBy(c => c.Row).ThenBy(c => c.Col).ToList();
+                                                    var totalRows = (field.Rows ?? 4);
+                                                    var totalCols = (field.GridColumns ?? 3);
+                                                    var headerRows = visibleCells.Where(c => c.IsHeader).GroupBy(c => c.Row).OrderBy(g => g.Key).ToList();
+                                                    var firstDataRow = headerRows.Any() ? headerRows.Max(g => g.Key) + 1 : 0;
+                                                    var assignedColumns = field.Columns ?? new List<ColumnConfig>();
+                                                }
+
+                                                <div class="advanced-table-container">
+                                                    <table id="advTable-@field.FieldId">
+                                                        <!-- Header rows -->
+                                                        @foreach (var headerRowGroup in headerRows)
+                                                        {
+                                                            <tr>
+                                                                @foreach (var cell in headerRowGroup.OrderBy(c => c.Col))
+                                                                {
+                                                                    <th class="header-cell"
+                                                                        rowspan="@cell.Rowspan"
+                                                                        colspan="@cell.Colspan">
+                                                                        @(cell.ColumnName ?? "")
+                                                                    </th>
+                                                                }
+                                                            </tr>
+                                                        }
+
+                                                        <!-- Data rows -->
+                                                        <tbody id="advTbody-@field.FieldId">
+                                                            @{
+                                                                var dataEntryRow = visibleCells.Where(c => c.Row == 2 && !c.IsHeader).ToList();
+                                                                
+                                                                // Collect all advanced table data
+                                                                var advTableData = formData.Where(kvp => kvp.Key.StartsWith(field.FieldId + "_datarow"))
+                                                                                           .OrderBy(kvp => kvp.Key)
+                                                                                           .ToList();
+
+                                                                var advRowGroups = advTableData.GroupBy(kvp => {
+                                                                    var match = System.Text.RegularExpressions.Regex.Match(kvp.Key, @"_datarow(\d+)_");
+                                                                    return match.Success ? int.Parse(match.Groups[1].Value) : -1;
+                                                                }).Where(g => g.Key >= 0).OrderBy(g => g.Key);
+
+                                                                foreach (var advRowGroup in advRowGroups)
+                                                                {
+                                                                    <tr class="advanced-table-data-row">
+                                                                        @for (int col = 0; col < totalCols; col++)
+                                                                        {
+                                                                            var templateCell = dataEntryRow.FirstOrDefault(c => c.Col == col);
+                                                                            if (templateCell != null)
+                                                                            {
+                                                                                var column = assignedColumns.FirstOrDefault(c => c.Name == templateCell.ColumnName);
+                                                                                var inputType = "text";
+
+                                                                                if (column != null)
+                                                                                {
+                                                                                    inputType = column.Type?.ToLower() switch
+                                                                                    {
+                                                                                        "number" => "number",
+                                                                                        "date" => "date",
+                                                                                        "email" => "email",
+                                                                                        _ => "text"
+                                                                                    };
+                                                                                }
+
+                                                                                var cellKey = $"{field.FieldId}_datarow{advRowGroup.Key}_col{col}";
+                                                                                var cellValue = "";
+                                                                                if (formData.TryGetValue(cellKey, out JsonElement advCellElement))
+                                                                                {
+                                                                                    cellValue = advCellElement.ValueKind == JsonValueKind.String ? advCellElement.GetString() ?? "" : advCellElement.ToString();
+                                                                                }
+
+                                                                                <td class="assigned-cell">
+                                                                                    <input type="@inputType" value="@cellValue" disabled />
+                                                                                </td>
+                                                                            }
+                                                                        }
+                                                                    </tr>
+                                                                }
+                                                            }
+                                                        </tbody>
+
+                                                        <!-- Fixed footer rows -->
+                                                        @{
+                                                            var footerRows = visibleCells.Where(c => c.Row >= 3 && !c.IsHeader)
+                                                                                         .GroupBy(c => c.Row)
+                                                                                         .OrderBy(g => g.Key)
+                                                                                         .ToList();
+
+                                                            foreach (var footerRowGroup in footerRows)
+                                                            {
+                                                                <tr class="advanced-table-footer-row">
+                                                                    @foreach (var cell in footerRowGroup.OrderBy(c => c.Col))
+                                                                    {
+                                                                        var column = assignedColumns.FirstOrDefault(c => c.Name == cell.ColumnName);
+                                                                        var inputType = "text";
+
+                                                                        if (column != null)
+                                                                        {
+                                                                            inputType = column.Type?.ToLower() switch
+                                                                            {
+                                                                                "number" => "number",
+                                                                                "date" => "date",
+                                                                                "email" => "email",
+                                                                                _ => "text"
+                                                                            };
+                                                                        }
+
+                                                                        var fixedCellKey = $"{field.FieldId}_fixedrow{cell.Row}_col{cell.Col}";
+                                                                        var fixedCellValue = "";
+                                                                        if (formData.TryGetValue(fixedCellKey, out JsonElement fixedElement))
+                                                                        {
+                                                                            fixedCellValue = fixedElement.ValueKind == JsonValueKind.String ? fixedElement.GetString() ?? "" : fixedElement.ToString();
+                                                                        }
+
+                                                                        <td class="assigned-cell"
+                                                                            rowspan="@cell.Rowspan"
+                                                                            colspan="@cell.Colspan">
+                                                                            <strong>@cell.ColumnName</strong>
+                                                                            <input type="@inputType" value="@fixedCellValue" style="margin-top: 8px;" disabled />
+                                                                        </td>
+                                                                    }
+                                                                </tr>
+                                                            }
+                                                        }
+                                                    </table>
+                                                </div>
+                                            </div>
+                                            break;
+
+                                           case "signature":
+                                               
+                                                    var signatureValue = "";
+                                                    if (formData.TryGetValue(field.FieldId, out JsonElement sigElement))
+                                                    {
+                                                        signatureValue = sigElement.ValueKind == JsonValueKind.String ? sigElement.GetString() ?? "" : sigElement.ToString();
+                                                    }
+                                                    // If no signature in form data, fall back to employee signature from model
+                                                    if (string.IsNullOrEmpty(signatureValue))
+                                                    {
+                                                        signatureValue = Model.EmployeeSignature;
+                                                    }
+                                                
+                                                <label class="form-label @(field.Required ? "required" : "")">@field.FieldLabel</label>
+                                                <div class="signature-field">
+                                                    <p style="margin: 0 0 12px 0; color: #6b7280;">Employee signature</p>
+                                                    <div class="signature-pad">
+                                                        @if (!string.IsNullOrEmpty(signatureValue))
+                                                        {
+                                                            <img src="@signatureValue" alt="Employee Signature" style="max-height: 100px;" />
+                                                        }
+                                                        else
+                                                        {
+                                                            <span style="color: #9ca3af;">No signature provided</span>
+                                                        }
+                                                    </div>
+                                                </div>
+                                                break;
                                     }
                                 </div>
                             }
@@ -273,7 +561,7 @@
                         {
                             <div class="signature-container">
                                 <img src="@signatureData" alt="Employee Signature" class="signature-image" />
-                                <p style="color: var(--color-text-muted); font-size: 0.875rem; margin-top: 1rem;">
+                                <p style="color: #6b7280; font-size: 0.875rem; margin-top: 1rem;">
                                     Digitally signed on: @Model.SubmittedDate.ToString("MMMM dd, yyyy 'at' HH:mm")
                                 </p>
                             </div>
@@ -283,7 +571,7 @@
             }
         </div>
 
-        <!-- Right Panel - Actions -->
+        <!-- Right Panel - Review Actions -->
         <div class="actions-panel">
             <h2 class="actions-title">Review Actions</h2>
 
@@ -325,7 +613,7 @@
                 <span>Request Verification</span>
             </button>
 
-            <a href="@Url.Action("Dashboard", "Employee")" class="action-btn" style="background: white; border: 2px solid var(--color-primary); color: var(--color-primary); text-decoration: none;">
+            <a href="@Url.Action("Dashboard", "Employee")" class="action-btn" style="background: white; border: 2px solid #00C2CB; color: #00C2CB; text-decoration: none;">
                 <svg class="btn-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                 </svg>
@@ -334,7 +622,7 @@
         </div>
     </div>
 
-    <!-- Step 1: Approval Modal (Notes) -->
+    <!-- Approval Modal -->
     <div class="modal-overlay" id="approvalModal">
         <div class="modal-content">
             <div class="modal-header">
@@ -372,7 +660,7 @@
         </div>
     </div>
 
-    <!-- Step 1: Rejection Modal (Notes) -->
+    <!-- Rejection Modal -->
     <div class="modal-overlay" id="rejectionModal">
         <div class="modal-content">
             <div class="modal-header">
@@ -403,14 +691,14 @@
 
             <div class="modal-footer">
                 <button type="button" class="btn-modal btn-modal-cancel" onclick="closeModal('rejectionModal')">Cancel</button>
-                <button type="button" class="btn-modal btn-modal-confirm" style="background: var(--color-danger); color: white; box-shadow: 0 6px 25px rgba(239, 68, 68, 0.4);" onclick="proceedToAttestation('reject')">
+                <button type="button" class="btn-modal btn-modal-confirm" style="background: #ef4444; color: white;" onclick="proceedToAttestation('reject')">
                     Next: Digital Signature →
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- Step 1: Verification Modal (Notes) -->
+    <!-- Verification Modal -->
     <div class="modal-overlay" id="verificationModal">
         <div class="modal-content">
             <div class="modal-header">
@@ -436,16 +724,7 @@
                 </div>
 
                 <label class="form-label required" for="verificationNotes">Reason for Verification Request</label>
-                <textarea id="verificationNotes" class="modal-textarea" placeholder="Explain why this submission requires external verification (e.g., undisclosed directorships, suspicious financial interests, etc.)..." required></textarea>
-
-                <div class="alert-box warning" style="margin-top: 1.5rem;">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-                    </svg>
-                    <div>
-                        <strong>Note:</strong> This will alert the administrator to conduct external verification. Additional credits will be consumed.
-                    </div>
-                </div>
+                <textarea id="verificationNotes" class="modal-textarea" placeholder="Explain why this submission requires external verification..." required></textarea>
             </div>
 
             <div class="modal-footer">
@@ -457,10 +736,7 @@
         </div>
     </div>
 
-    <!-- Step 2: Digital Attestation Modal (Common for all actions) -->
-    <!-- UPDATED: Step 2: Digital Attestation Modal (with Auto-loaded Signature) -->
-    <!-- Replace the existing attestationModal in your ReviewSubmission-WithAttestation.cshtml -->
-
+    <!-- Digital Attestation Modal -->
     <div class="modal-overlay" id="attestationModal">
         <div class="modal-content">
             <div class="modal-header">
@@ -505,14 +781,14 @@
                     </div>
                 </div>
 
-                <!-- Auto-loaded Signature Display (read-only) -->
-                <div class="signature-pad-container">
+                <!-- Auto-loaded Signature Display -->
+                <div style="margin-top: 1.5rem;">
                     <label class="form-label required">Your Digital Signature (Auto-loaded)</label>
                     <div class="signature-display-box">
                         <img id="reviewerSignatureImage" src="@Model.ReviewerSignature" alt="Reviewer Signature" class="signature-image" style="max-width: 100%; height: auto; display: block; margin: 0 auto;" />
                     </div>
-                    <p style="text-align: center; color: var(--color-text-muted); font-size: 0.875rem; margin-top: 0.75rem;">
-                        <svg style="width: 16px; height: 16px; display: inline-block; vertical-align: middle; color: var(--color-success);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <p style="text-align: center; color: #6b7280; font-size: 0.875rem; margin-top: 0.75rem;">
+                        <svg style="width: 16px; height: 16px; display: inline-block; vertical-align: middle; color: #10b981;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                         Signature loaded from your profile
@@ -523,7 +799,7 @@
                 <div class="attestation-checkbox">
                     <input type="checkbox" id="attestationCheck" required />
                     <label for="attestationCheck">
-                        <strong>I certify that:</strong> I have thoroughly reviewed this declaration, my decision is based on accurate assessment, and I understand this digital signature has the same legal effect as a handwritten signature as per the PRD requirements (FR 4.5.4).
+                        <strong>I certify that:</strong> I have thoroughly reviewed this declaration, my decision is based on accurate assessment, and I understand this digital signature has the same legal effect as a handwritten signature.
                     </label>
                 </div>
             </div>
@@ -537,168 +813,6 @@
         </div>
     </div>
 
-    <!-- UPDATED JAVASCRIPT -->
-    <script>
-        // Global variables
-        let currentAction = '';
-        let reviewerSignatureData = '@Model.ReviewerSignature'; // Auto-loaded from database
-
-        // Modal Functions (keep existing functions)
-        function showApprovalModal() {
-            document.getElementById('approvalModal').classList.add('active');
-        }
-
-        function showRejectionModal() {
-            document.getElementById('rejectionModal').classList.add('active');
-        }
-
-        function showVerificationModal() {
-            document.getElementById('verificationModal').classList.add('active');
-        }
-
-        function closeModal(modalId) {
-            document.getElementById(modalId).classList.remove('active');
-        }
-
-        function proceedToAttestation(action) {
-            // Validate notes based on action
-            if (action === 'reject') {
-                const notes = document.getElementById('rejectionNotes').value.trim();
-                if (!notes) {
-                    alert('Please provide revision notes before proceeding.');
-                    return;
-                }
-            } else if (action === 'verification') {
-                const notes = document.getElementById('verificationNotes').value.trim();
-                if (!notes) {
-                    alert('Please provide a reason for verification before proceeding.');
-                    return;
-                }
-            }
-
-            // Store current action
-            currentAction = action;
-
-            // Close current modal
-            closeModal('approvalModal');
-            closeModal('rejectionModal');
-            closeModal('verificationModal');
-
-            // Update attestation modal based on action
-            const attestationIcon = document.getElementById('attestationIcon');
-            const reviewDecision = document.getElementById('reviewDecision');
-
-            attestationIcon.className = 'modal-icon ' + action;
-
-            if (action === 'approve') {
-                reviewDecision.textContent = 'APPROVED';
-                reviewDecision.style.color = 'var(--color-success)';
-            } else if (action === 'reject') {
-                reviewDecision.textContent = 'REVISION REQUIRED';
-                reviewDecision.style.color = 'var(--color-danger)';
-            } else if (action === 'verification') {
-                reviewDecision.textContent = 'VERIFICATION REQUESTED';
-                reviewDecision.style.color = 'var(--color-accent)';
-            }
-
-            // Set review date
-            document.getElementById('reviewDate').textContent = new Date().toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-
-            // Reset checkbox
-            document.getElementById('attestationCheck').checked = false;
-            document.getElementById('finalSubmitBtn').disabled = true;
-
-            // Show attestation modal with pre-loaded signature
-            document.getElementById('attestationModal').classList.add('active');
-        }
-
-        function backToNotesModal() {
-            closeModal('attestationModal');
-
-            if (currentAction === 'approve') {
-                showApprovalModal();
-            } else if (currentAction === 'reject') {
-                showRejectionModal();
-            } else if (currentAction === 'verification') {
-                showVerificationModal();
-            }
-        }
-
-        async function finalSubmit() {
-            let reviewerNotes = '';
-            let verificationType = null;
-
-            // Get notes based on action
-            if (currentAction === 'approve') {
-                reviewerNotes = document.getElementById('approvalNotes').value.trim();
-            } else if (currentAction === 'reject') {
-                reviewerNotes = document.getElementById('rejectionNotes').value.trim();
-            } else if (currentAction === 'verification') {
-                reviewerNotes = document.getElementById('verificationNotes').value.trim();
-                verificationType = 'Manual Review Request';
-            }
-
-            const payload = {
-                submissionId: @Model.SubmissionId,
-                action: currentAction,
-                reviewerNotes: reviewerNotes,
-                reviewerName: '@Model.ReviewerName',
-                reviewerPosition: '@Model.ReviewerPosition',
-                verificationType: verificationType,
-                reviewerSignature: reviewerSignatureData // Use pre-loaded signature from database
-            };
-
-            // Show loading
-            document.getElementById('loadingOverlay').classList.add('active');
-            closeModal('attestationModal');
-
-            try {
-                const response = await fetch('@Url.Action("ProcessReview", "Employee")', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(payload)
-                });
-
-                const result = await response.json();
-
-                if (result.success) {
-                    window.location.href = result.redirectUrl || '@Url.Action("Dashboard", "Employee")';
-                } else {
-                    document.getElementById('loadingOverlay').classList.remove('active');
-                    alert(result.message || 'An error occurred. Please try again.');
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                document.getElementById('loadingOverlay').classList.remove('active');
-                alert('An error occurred. Please try again.');
-            }
-        }
-
-        // Enable/disable submit button based on checkbox only (signature already loaded)
-        document.getElementById('attestationCheck').addEventListener('change', function() {
-            const submitBtn = document.getElementById('finalSubmitBtn');
-            submitBtn.disabled = !this.checked;
-        });
-
-        // Close modal when clicking outside
-        document.querySelectorAll('.modal-overlay').forEach(modal => {
-            modal.addEventListener('click', function(e) {
-                if (e.target === this) {
-                    closeModal(this.id);
-                }
-            });
-        });
-    </script>
-
-
     <!-- Loading Overlay -->
     <div class="loading-overlay" id="loadingOverlay">
         <div class="loading-spinner"></div>
@@ -707,98 +821,7 @@
     <script>
         // Global variables
         let currentAction = '';
-        let signaturePad = null;
-        let isDrawing = false;
-
-        // Initialize signature pad
-        function initializeSignaturePad() {
-            const canvas = document.getElementById('signatureCanvas');
-            const ctx = canvas.getContext('2d');
-            
-            // Set canvas size
-            canvas.width = canvas.offsetWidth;
-            canvas.height = canvas.offsetHeight;
-
-            // Mouse events
-            canvas.addEventListener('mousedown', startDrawing);
-            canvas.addEventListener('mousemove', draw);
-            canvas.addEventListener('mouseup', stopDrawing);
-            canvas.addEventListener('mouseout', stopDrawing);
-
-            // Touch events
-            canvas.addEventListener('touchstart', handleTouchStart);
-            canvas.addEventListener('touchmove', handleTouchMove);
-            canvas.addEventListener('touchend', stopDrawing);
-
-            function startDrawing(e) {
-                isDrawing = true;
-                const rect = canvas.getBoundingClientRect();
-                ctx.beginPath();
-                ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
-            }
-
-            function draw(e) {
-                if (!isDrawing) return;
-                const rect = canvas.getBoundingClientRect();
-                ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
-                ctx.strokeStyle = '#081B38';
-                ctx.lineWidth = 2;
-                ctx.lineCap = 'round';
-                ctx.stroke();
-                checkSignature();
-            }
-
-            function stopDrawing() {
-                isDrawing = false;
-            }
-
-            function handleTouchStart(e) {
-                e.preventDefault();
-                const touch = e.touches[0];
-                const mouseEvent = new MouseEvent('mousedown', {
-                    clientX: touch.clientX,
-                    clientY: touch.clientY
-                });
-                canvas.dispatchEvent(mouseEvent);
-            }
-
-            function handleTouchMove(e) {
-                e.preventDefault();
-                const touch = e.touches[0];
-                const mouseEvent = new MouseEvent('mousemove', {
-                    clientX: touch.clientX,
-                    clientY: touch.clientY
-                });
-                canvas.dispatchEvent(mouseEvent);
-            }
-        }
-
-        function clearSignature() {
-            const canvas = document.getElementById('signatureCanvas');
-            const ctx = canvas.getContext('2d');
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            checkSignature();
-        }
-
-        function checkSignature() {
-            const canvas = document.getElementById('signatureCanvas');
-            const ctx = canvas.getContext('2d');
-            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            const data = imageData.data;
-            
-            // Check if canvas has any non-white pixels
-            let hasSignature = false;
-            for (let i = 0; i < data.length; i += 4) {
-                if (data[i + 3] > 0) {
-                    hasSignature = true;
-                    break;
-                }
-            }
-
-            const checkbox = document.getElementById('attestationCheck');
-            const submitBtn = document.getElementById('finalSubmitBtn');
-            submitBtn.disabled = !(hasSignature && checkbox.checked);
-        }
+        let reviewerSignatureData = '@Model.ReviewerSignature';
 
         // Modal Functions
         function showApprovalModal() {
@@ -844,18 +867,18 @@
             // Update attestation modal based on action
             const attestationIcon = document.getElementById('attestationIcon');
             const reviewDecision = document.getElementById('reviewDecision');
-            
+
             attestationIcon.className = 'modal-icon ' + action;
-            
+
             if (action === 'approve') {
                 reviewDecision.textContent = 'APPROVED';
-                reviewDecision.style.color = 'var(--color-success)';
+                reviewDecision.style.color = '#10b981';
             } else if (action === 'reject') {
                 reviewDecision.textContent = 'REVISION REQUIRED';
-                reviewDecision.style.color = 'var(--color-danger)';
+                reviewDecision.style.color = '#ef4444';
             } else if (action === 'verification') {
                 reviewDecision.textContent = 'VERIFICATION REQUESTED';
-                reviewDecision.style.color = 'var(--color-accent)';
+                reviewDecision.style.color = '#00C2CB';
             }
 
             // Set review date
@@ -867,24 +890,17 @@
                 minute: '2-digit'
             });
 
-            // Clear previous signature
-            clearSignature();
+            // Reset checkbox
             document.getElementById('attestationCheck').checked = false;
             document.getElementById('finalSubmitBtn').disabled = true;
 
             // Show attestation modal
             document.getElementById('attestationModal').classList.add('active');
-            
-            // Initialize signature pad if not already done
-            if (!signaturePad) {
-                initializeSignaturePad();
-                signaturePad = true;
-            }
         }
 
         function backToNotesModal() {
             closeModal('attestationModal');
-            
+
             if (currentAction === 'approve') {
                 showApprovalModal();
             } else if (currentAction === 'reject') {
@@ -908,10 +924,6 @@
                 verificationType = 'Manual Review Request';
             }
 
-            // Get signature
-            const canvas = document.getElementById('signatureCanvas');
-            const signatureData = canvas.toDataURL('image/png');
-
             const payload = {
                 submissionId: @Model.SubmissionId,
                 action: currentAction,
@@ -919,7 +931,7 @@
                 reviewerName: '@Model.ReviewerName',
                 reviewerPosition: '@Model.ReviewerPosition',
                 verificationType: verificationType,
-                reviewerSignature: signatureData
+                reviewerSignature: reviewerSignatureData
             };
 
             // Show loading
@@ -950,12 +962,15 @@
             }
         }
 
-        // Enable/disable submit button based on signature and checkbox
-        document.getElementById('attestationCheck').addEventListener('change', checkSignature);
+        // Enable/disable submit button based on checkbox
+        document.getElementById('attestationCheck').addEventListener('change', function () {
+            const submitBtn = document.getElementById('finalSubmitBtn');
+            submitBtn.disabled = !this.checked;
+        });
 
         // Close modal when clicking outside
         document.querySelectorAll('.modal-overlay').forEach(modal => {
-            modal.addEventListener('click', function(e) {
+            modal.addEventListener('click', function (e) {
                 if (e.target === this) {
                     closeModal(this.id);
                 }
@@ -990,5 +1005,48 @@
         public int Order { get; set; }
         public string? ConditionalOn { get; set; }
         public List<string>? Options { get; set; }
+        public string? Placeholder { get; set; }
+        public string? HelpText { get; set; }
+        public TableConfig? TableConfig { get; set; }
+        public List<ColumnConfig>? Columns { get; set; }
+        public int? Rows { get; set; }
+        public int? GridColumns { get; set; }
+        public List<CellConfig>? Cells { get; set; }
+        public ValidationConfig? Validation { get; set; }
+    }
+
+    public class TableConfig
+    {
+        public List<string> Columns { get; set; } = new();
+        public int MinRows { get; set; }
+        public bool AllowAddRows { get; set; }
+    }
+
+    public class ColumnConfig
+    {
+        public string? Name { get; set; }
+        public string Type { get; set; }
+    }
+
+    public class CellConfig
+    {
+        public int Row { get; set; }
+        public int Col { get; set; }
+        public int Rowspan { get; set; }
+        public int Colspan { get; set; }
+        public string? ColumnId { get; set; }
+        public string? ColumnName { get; set; }
+        public bool IsHeader { get; set; }
+        public bool IsMerged { get; set; }
+        public bool Hidden { get; set; }
+    }
+
+    public class ValidationConfig
+    {
+        public string? Min { get; set; }
+        public string? Max { get; set; }
+        public string? FileTypes { get; set; }
+        public int? MaxSize { get; set; }
+        public bool? AllowTyped { get; set; }
     }
 }

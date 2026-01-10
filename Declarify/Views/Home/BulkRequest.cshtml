@@ -7,7 +7,16 @@
 
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link href="~/css/bulksrequest.css" rel="stylesheet" />
-
+<link href="~/css/loadercss.css" rel="stylesheet" />
+<!-- Loader -->
+<div class="page-loader" id="pageLoader">
+    <div class="spinner">
+        <span></span>
+        <span></span>
+        <span></span>
+    </div>
+    <p class="loader-text">Loading Bulk Request...</p>
+</div>
 <div class="hero-gradient">
     <div class="page-header">
         <div class="container-custom">
@@ -70,7 +79,7 @@
                                         <svg class="meta-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                         </svg>
-                                        <span>~15 min</span>
+                                       
                                     </div>
                                 </div>
                             </div>
@@ -218,11 +227,28 @@
     </form>
 </div>
 
+<!-- Add this modal before the closing </div> of container-custom -->
+<div id="sendingModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; align-items: center; justify-content: center;">
+    <div style="background: white; padding: 2rem; border-radius: 12px; text-align: center; max-width: 400px;">
+        <div class="spinner" style="margin: 0 auto 1rem;">
+            <span></span>
+            <span></span>
+            <span></span>
+        </div>
+        <h3 style="margin-bottom: 0.5rem;">Sending Declarations...</h3>
+        <p style="color: var(--color-text-muted);">Please wait while we send declaration requests to selected employees.</p>
+    </div>
+</div>
 <script>
     let currentStep = 1;
     let selectedTemplateId = null;
     let selectedEmployees = new Set();
 
+       window.addEventListener('load', function() {
+            setTimeout(function() {
+                document.getElementById('pageLoader').classList.add('hidden');
+            }, 500);
+        });
     function selectTemplate(element) {
         document.querySelectorAll('.selection-card').forEach(card => card.classList.remove('selected'));
         element.classList.add('selected');
@@ -276,20 +302,64 @@
         });
     }
 
-    function filterEmployees() {
-        const search = document.getElementById('employeeSearch').value.toLowerCase();
-        document.querySelectorAll('.employee-item').forEach(item => {
-            const name = item.getAttribute('data-name');
-            item.style.display = name.includes(search) ? 'flex' : 'none';
+      function filterEmployees() {
+        const search = document.getElementById('employeeSearch').value.toLowerCase().trim();
+
+        if (search === '') {
+            // Show all employees and departments when search is empty
+            document.querySelectorAll('.employee-item').forEach(item => {
+                item.style.display = 'flex';
+            });
+            document.querySelectorAll('.department-group').forEach(group => {
+                group.style.display = 'block';
+            });
+            return;
+        }
+
+        document.querySelectorAll('.department-group').forEach(group => {
+            let hasVisibleEmployee = false;
+            const departmentName = group.querySelector('.department-name').textContent.toLowerCase();
+            const departmentMatches = departmentName.includes(search);
+
+            // Filter employees within this department
+            group.querySelectorAll('.employee-item').forEach(item => {
+                const name = item.getAttribute('data-name');
+                const department = item.getAttribute('data-department').toLowerCase();
+                const position = item.querySelector('.employee-role').textContent.toLowerCase();
+
+                // Check if search matches name, department, or position
+                const matches = name.includes(search) ||
+                              department.includes(search) ||
+                              position.includes(search) ||
+                              departmentMatches;
+
+                if (matches) {
+                    item.style.display = 'flex';
+                    hasVisibleEmployee = true;
+                    // Auto-expand department if it has matching employees
+                    const employeeList = group.querySelector('.employee-list');
+                    if (employeeList) {
+                        employeeList.style.display = 'grid';
+                    }
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+
+            // Hide department group if no employees match
+            group.style.display = hasVisibleEmployee ? 'block' : 'none';
         });
     }
-
     function changeStep(direction) {
         if (direction === 1 && !validateStep(currentStep)) return;
 
         const newStep = currentStep + direction;
         if (newStep < 1 || newStep > 4) return;
 
+         const loader = document.getElementById('pageLoader');
+         loader.classList.remove('hidden');
+
+         setTimeout(()=>{
         document.querySelectorAll('.step-content').forEach(content => content.classList.remove('active'));
         document.querySelectorAll('.wizard-step').forEach(step => step.classList.remove('active'));
 
@@ -311,6 +381,8 @@
         }
 
         window.scrollTo({ top: 0, behavior: 'smooth' });
+        loader.classList.add('hidden');
+        },300);
     }
 
     function validateStep(step) {
@@ -372,7 +444,7 @@
         }
     }
 
-    function submitForm() {
+       function submitForm() {
         if (!validateStep(4)) return;
 
         // Convert Set to Array of strings (as backend expects)
@@ -385,15 +457,22 @@
         // Show confirmation
         const confirmMsg = `You are about to send declaration requests to ${selectedEmployees.size} employees. Continue?`;
         if (confirm(confirmMsg)) {
+            // Show the sending modal
+            const modal = document.getElementById('sendingModal');
+            modal.style.display = 'flex';
+
+            // Disable the submit button to prevent double-submission
+            const nextBtn = document.getElementById('nextBtn');
+            nextBtn.disabled = true;
+            nextBtn.style.opacity = '0.5';
+            nextBtn.style.cursor = 'not-allowed';
+
+            // Also disable Previous and Cancel buttons
+            document.getElementById('prevBtn').disabled = true;
+            document.getElementById('prevBtn').style.opacity = '0.5';
+
+            // Submit the form
             document.getElementById('bulkRequestForm').submit();
         }
     }
-
-    // Auto-expand first department on page load
-    document.addEventListener('DOMContentLoaded', function() {
-        const firstDepartment = document.querySelector('.department-header');
-        if (firstDepartment) {
-            firstDepartment.click();
-        }
-    });
 </script>

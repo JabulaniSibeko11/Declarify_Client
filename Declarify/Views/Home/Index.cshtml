@@ -10,150 +10,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Dashboard - Declarify</title>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link href="~/css/admindashboardcss.css" rel="stylesheet" />
+    <link href="~/css/admindashboardcss1.css" rel="stylesheet" />
     <link href="~/css/settingcss.css" rel="stylesheet" />
-    <style>
-        /* Dropdown styles for admin header */
-        .employee-trigger {
-            position: relative;
-            cursor: pointer;
-        }
-
-        .admin-dropdown {
-            position: absolute;
-            top: calc(100% + 8px);
-            right: 0;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
-            min-width: 280px;
-            opacity: 0;
-            visibility: hidden;
-            transform: translateY(-10px);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            z-index: 1000;
-            overflow: hidden;
-        }
-
-            .admin-dropdown.active {
-                opacity: 1;
-                visibility: visible;
-                transform: translateY(0);
-            }
-
-        .dropdown-header {
-            padding: 20px;
-            border-bottom: 1px solid #E5E7EB;
-            display: flex;
-            gap: 12px;
-            align-items: center;
-        }
-
-        .dropdown-avatar {
-            width: 48px;
-            height: 48px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #667EEA 0%, #764BA2 100%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: 600;
-            font-size: 1.125rem;
-        }
-
-        .dropdown-header h4 {
-            margin: 0;
-            font-size: 0.9375rem;
-            font-weight: 600;
-            color: #1F2937;
-        }
-
-        .dropdown-header p {
-            margin: 4px 0 0 0;
-            font-size: 0.8125rem;
-            color: #6B7280;
-        }
-
-        .dropdown-divider {
-            height: 1px;
-            background: #E5E7EB;
-            margin: 0;
-        }
-
-        .dropdown-section {
-            padding: 8px;
-        }
-
-        .dropdown-section-label {
-            padding: 8px 12px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            color: #6B7280;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-
-        .dropdown-item {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 12px;
-            border-radius: 8px;
-            color: #374151;
-            text-decoration: none;
-            transition: all 0.2s ease;
-            cursor: pointer;
-        }
-
-            .dropdown-item:hover {
-                background: #F3F4F6;
-                color: #667EEA;
-            }
-
-            .dropdown-item.active {
-                background: #EEF2FF;
-                color: #667EEA;
-            }
-
-            .dropdown-item.logout {
-                color: #EF4444;
-            }
-
-                .dropdown-item.logout:hover {
-                    background: #FEE2E2;
-                    color: #DC2626;
-                }
-
-        .dropdown-icon {
-            width: 20px;
-            height: 20px;
-            flex-shrink: 0;
-        }
-
-        .dropdown-item span:not(.dropdown-badge) {
-            flex: 1;
-            font-size: 0.875rem;
-            font-weight: 500;
-        }
-
-        .dropdown-badge {
-            padding: 2px 8px;
-            background: #DBEAFE;
-            color: #1E40AF;
-            border-radius: 12px;
-            font-size: 0.6875rem;
-            font-weight: 600;
-            margin-left: auto;
-        }
-
-            .dropdown-badge.warning {
-                background: #FEF3C7;
-                color: #92400E;
-            }
-    </style>
+    <link href="~/css/progressemployeecss.css" rel="stylesheet" />
 </head>
 <body>
+
+    <!-- Loader -->
+    <div class="page-loader" id="pageLoader">
+        <div class="spinner">
+            <span></span>
+            <span></span>
+            <span></span>
+        </div>
+        <p class="loader-text">Loading Dashboard...</p>
+    </div>
     <header class="modern-header">
         <div class="header-container">
             <!-- Left Section: Branding & Company -->
@@ -162,12 +33,16 @@
                     <div class="brand-logo">
                         <div class="logo-circle">
                             <!-- Logo rendered with CSS -->
+                      
+                            <img src="~/images/declarify logo.png" alt="Declarify Logo"
+                                 class="logo-img" />
                         </div>
                         <div class="brand-text">
                             <div class="brand-name">Declar</div>
                             <div class="brand-tagline">Compliance Hub</div>
                         </div>
                     </div>
+                    
                     <div class="vertical-divider"></div>
                     <div class="company-badge">
                         <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -314,7 +189,8 @@
         <!-- Hero Banner -->
         <div class="hero-banner">
             <div class="hero-content">
-                <h1>Welcome back, <span>Admin</span></h1>
+         
+                        <h1>Welcome back, <span>Admin</span></h1>
                 <p>Public Sector Integrity. Clarified. Monitor compliance, track submissions, and drive accountability across your organization.</p>
                 <div class="hero-actions">
                     <button class="btn btn-primary" type="button" onclick="location.href='@Url.Action("BulkRequest", "Home")'">
@@ -494,7 +370,7 @@
                 }
             </div>
         </div>
-
+       
         <!-- Quick Actions -->
         <div class="section">
             <div class="section-header">
@@ -544,6 +420,11 @@
     <script src="~/js/uploademployeesjs.js"></script>
     <script src="~/js/settingsjs.js"></script>
     <script>
+             window.addEventListener('load', function() {
+            setTimeout(function() {
+                document.getElementById('pageLoader').classList.add('hidden');
+            }, 500);
+        });
         // Dropdown Toggle Functionality
         const adminDropdownTrigger = document.getElementById('adminDropdownTrigger');
         const adminDropdown = document.getElementById('adminDropdown');
