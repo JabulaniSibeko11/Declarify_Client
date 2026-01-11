@@ -13,6 +13,31 @@
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link href="~/css/admindashboardcss1.css" rel="stylesheet" />
     <link href="~/css/createtemplatecss1.css" rel="stylesheet" />
+    <style>
+
+        .back-button {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #F8FAFC;
+            border: 2px solid #E2E8F0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #1E293B;
+            transition: all 0.3s ease;
+            text-decoration: none;
+        }
+
+            .back-button:hover {
+                background: #00C2CB;
+                border-color: #00C2CB;
+                color: white;
+                transform: translateX(-3px);
+            }
+
+    </style>
+
 </head>
 <body>
     <!-- Header -->
@@ -38,12 +63,11 @@
                 </div>
             </div>
             <div class="header-right">
-                <button class="btn btn-ghost" onclick="goToDashboard()">
-                    <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <path d="M15 19l-7-7 7-7" />
+                <a href="@Url.Action("Index", "Home")" class="back-button">
+                    <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                     </svg>
-                    Back to Dashboard
-                </button>
+                </a>
             </div>
         </div>
     </header>

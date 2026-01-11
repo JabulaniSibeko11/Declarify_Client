@@ -954,37 +954,277 @@ function generateFullPreview() {
 
     sections.forEach((section, index) => {
         let sectionHtml = `
-            <div class="preview-section-full">
-                <div class="section-header-preview">
-                    <div class="section-number">${index + 1}</div>
-                    <h2>${escapeHTML(section.sectionTitle || 'Untitled Section')}</h2>
+            <div class="form-card" data-section="${index + 1}">
+                <div class="section-header">
+                    <span class="section-number">${index + 1}</span>
+                    <span>${escapeHTML(section.sectionTitle || 'Untitled Section')}</span>
                 </div>
         `;
 
         if (section.disclaimer) {
-            sectionHtml += `<p class="section-disclaimer-preview">ℹ️ ${escapeHTML(section.disclaimer)}</p>`;
+            sectionHtml += `<p class="section-description">${escapeHTML(section.disclaimer)}</p>`;
         }
 
-        sectionHtml += '<div class="preview-fields-grid">';
-
         section.fields.forEach(field => {
-            sectionHtml += `
-                <div class="preview-field-full">
-                    <label>
-                        ${escapeHTML(field.fieldLabel)}
-                        ${field.required ? '<span class="required-mark">*</span>' : ''}
-                    </label>
-                    ${field.helpText ? `<small>${escapeHTML(field.helpText)}</small>` : ''}
-                    <div class="preview-field-render">
-                        ${generateFieldPreview(field)}
+            sectionHtml += generatePreviewFieldHTML(field);
+        });
+
+        sectionHtml += '</div>';
+        container.insertAdjacentHTML('beforeend', sectionHtml);
+    });
+}
+
+function generatePreviewFieldHTML(field) {
+    let html = `<div class="form-group" data-field-id="${field.fieldId}">`;
+
+    switch (field.fieldType.toLowerCase()) {
+        case "heading":
+            html += `<h3 class="field-heading">${escapeHTML(field.fieldLabel)}</h3>`;
+            break;
+
+        case "paragraph":
+            html += `<p class="field-paragraph">${escapeHTML(field.helpText || field.fieldLabel)}</p>`;
+            break;
+
+        case "divider":
+            html += `<hr class="field-divider" />`;
+            break;
+
+        case "text":
+        case "email":
+        case "number":
+        case "phone":
+        case "url":
+            html += `
+                <label class="form-label ${field.required ? 'required' : ''}">${escapeHTML(field.fieldLabel)}</label>
+                ${field.helpText ? `<small style="display: block; margin-bottom: 8px; color: #6b7280;">${escapeHTML(field.helpText)}</small>` : ''}
+                <input type="${field.fieldType}" class="form-input" disabled placeholder="${escapeHTML(field.placeholder || 'Enter ' + field.fieldLabel.toLowerCase())}" />
+            `;
+            break;
+
+        case "currency":
+            html += `
+                <label class="form-label ${field.required ? 'required' : ''}">${escapeHTML(field.fieldLabel)}</label>
+                <div style="position: relative;">
+                    <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #6b7280;">R</span>
+                    <input type="number" class="form-input" disabled placeholder="0.00" style="padding-left: 32px;" />
+                </div>
+            `;
+            break;
+
+        case "date":
+            html += `
+                <label class="form-label ${field.required ? 'required' : ''}">${escapeHTML(field.fieldLabel)}</label>
+                <input type="date" class="form-input" disabled />
+            `;
+            break;
+
+        case "textarea":
+            html += `
+                <label class="form-label ${field.required ? 'required' : ''}">${escapeHTML(field.fieldLabel)}</label>
+                <textarea class="form-textarea" disabled placeholder="${escapeHTML(field.placeholder || '')}"></textarea>
+            `;
+            break;
+
+        case "select":
+        case "dropdown":
+            html += `
+                <label class="form-label ${field.required ? 'required' : ''}">${escapeHTML(field.fieldLabel)}</label>
+                <select class="form-select" disabled>
+                    <option value="">Select...</option>
+                    ${(field.options || []).map(opt => `<option>${escapeHTML(opt)}</option>`).join('')}
+                </select>
+            `;
+            break;
+
+        case "checkbox":
+            html += `
+                <div class="checkbox-group">
+                    <div class="checkbox-item">
+                        <input type="checkbox" disabled />
+                        <label>${escapeHTML(field.fieldLabel)}</label>
                     </div>
                 </div>
             `;
-        });
+            break;
 
-        sectionHtml += '</div></div>';
-        container.insertAdjacentHTML('beforeend', sectionHtml);
+        case "boolean":
+            html += `
+                <label class="form-label ${field.required ? 'required' : ''}">${escapeHTML(field.fieldLabel)}</label>
+                <div class="radio-group">
+                    <div class="radio-item"><input type="radio" disabled /><label>Yes</label></div>
+                    <div class="radio-item"><input type="radio" disabled /><label>No</label></div>
+                </div>
+            `;
+            break;
+
+        case "radio":
+            html += `
+                <label class="form-label ${field.required ? 'required' : ''}">${escapeHTML(field.fieldLabel)}</label>
+                <div class="radio-group">
+                    ${(field.options || []).map(opt => `
+                        <div class="radio-item">
+                            <input type="radio" disabled />
+                            <label>${escapeHTML(opt)}</label>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            break;
+
+        case "file":
+            html += `
+                <label class="form-label ${field.required ? 'required' : ''}">${escapeHTML(field.fieldLabel)}</label>
+                <input type="file" class="form-input" disabled />
+                <small>Max: ${field.validation?.maxSize || 5}MB</small>
+            `;
+            break;
+
+        case "table":
+            html += generateSimpleTablePreview(field);
+            break;
+
+        case "advancedtable":
+            html += generateAdvancedTablePreview(field);
+            break;
+
+        case "signature":
+            html += `
+                <label class="form-label ${field.required ? 'required' : ''}">${escapeHTML(field.fieldLabel)}</label>
+                <div class="signature-field">
+                    <p style="margin: 0 0 12px 0; color: #6b7280;">Signature area (auto-populated from profile)</p>
+                    <div class="signature-pad">✍️ Signature will appear here</div>
+                </div>
+            `;
+            break;
+    }
+
+    html += '</div>';
+    return html;
+}
+
+function generateSimpleTablePreview(field) {
+    const columns = field.tableConfig?.Columns || field.tableConfig?.columns || ['Column 1', 'Column 2', 'Column 3'];
+    const minRows = field.tableConfig?.MinRows || field.tableConfig?.minRows || 1;
+
+    let html = `
+        <label class="form-label ${field.required ? 'required' : ''}">${escapeHTML(field.fieldLabel)}</label>
+        ${field.helpText ? `<small style="display: block; margin-bottom: 8px; color: #6b7280;">${escapeHTML(field.helpText)}</small>` : ''}
+        <div class="table-field">
+            <table>
+                <thead>
+                    <tr>
+                        ${columns.map(col => `<th>${escapeHTML(col)}</th>`).join('')}
+                        <th style="width:80px;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+
+    for (let i = 0; i < minRows; i++) {
+        html += '<tr class="table-row">';
+        for (let j = 0; j < columns.length; j++) {
+            html += '<td><input type="text" disabled /></td>';
+        }
+        html += '<td><button type="button" class="table-row-delete" disabled>Delete</button></td>';
+        html += '</tr>';
+    }
+
+    html += `
+                </tbody>
+            </table>
+            ${field.tableConfig?.AllowAddRows !== false ? '<button type="button" class="table-add-row-btn" disabled>+ Add Row</button>' : ''}
+        </div>
+    `;
+
+    return html;
+}
+
+function generateAdvancedTablePreview(field) {
+    const cells = field.cells || [];
+    const visibleCells = cells.filter(c => !c.Hidden).sort((a, b) => a.Row - b.Row || a.Col - b.Col);
+    const totalRows = field.rows || 4;
+    const totalCols = field.gridColumns || 3;
+    const assignedColumns = field.columns || [];
+
+    const headerRows = visibleCells.filter(c => c.IsHeader)
+        .reduce((acc, cell) => {
+            if (!acc[cell.Row]) acc[cell.Row] = [];
+            acc[cell.Row].push(cell);
+            return acc;
+        }, {});
+
+    const firstDataRow = Object.keys(headerRows).length > 0
+        ? Math.max(...Object.keys(headerRows).map(Number)) + 1
+        : 0;
+
+    const dataEntryRow = visibleCells.filter(c => c.Row === 2 && !c.IsHeader);
+    const footerRows = visibleCells.filter(c => c.Row >= 3 && !c.IsHeader)
+        .reduce((acc, cell) => {
+            if (!acc[cell.Row]) acc[cell.Row] = [];
+            acc[cell.Row].push(cell);
+            return acc;
+        }, {});
+
+    let html = `
+        <label class="form-label ${field.required ? 'required' : ''}">${escapeHTML(field.fieldLabel)}</label>
+        ${field.helpText ? `<small style="display: block; margin-bottom: 8px; color: #6b7280;">${escapeHTML(field.helpText)}</small>` : ''}
+        <div class="advanced-table-field">
+            <div class="advanced-table-container">
+                <table>
+    `;
+
+    // Header rows
+    Object.keys(headerRows).sort((a, b) => Number(a) - Number(b)).forEach(rowNum => {
+        html += '<tr>';
+        headerRows[rowNum].sort((a, b) => a.Col - b.Col).forEach(cell => {
+            html += `
+                <th class="header-cell" rowspan="${cell.Rowspan}" colspan="${cell.Colspan}">
+                    ${escapeHTML(cell.ColumnName || '')}
+                </th>
+            `;
+        });
+        html += '</tr>';
     });
+
+    // Data entry row (preview with 1 row)
+    html += '<tbody><tr class="advanced-table-data-row">';
+    for (let col = 0; col < totalCols; col++) {
+        const templateCell = dataEntryRow.find(c => c.Col === col);
+        if (templateCell) {
+            const column = assignedColumns.find(c => c.Name === templateCell.ColumnName);
+            const inputType = column?.Type?.toLowerCase() || 'text';
+            html += `<td class="assigned-cell"><input type="${inputType}" disabled /></td>`;
+        }
+    }
+    html += '<td style="width: 80px;"><button type="button" class="table-row-delete" disabled>Delete</button></td>';
+    html += '</tr></tbody>';
+
+    // Footer rows
+    Object.keys(footerRows).sort((a, b) => Number(a) - Number(b)).forEach(rowNum => {
+        html += '<tr class="advanced-table-footer-row">';
+        footerRows[rowNum].sort((a, b) => a.Col - b.Col).forEach(cell => {
+            const column = assignedColumns.find(c => c.Name === cell.ColumnName);
+            const inputType = column?.Type?.toLowerCase() || 'text';
+            html += `
+                <td class="assigned-cell" rowspan="${cell.Rowspan}" colspan="${cell.Colspan}">
+                    <strong>${escapeHTML(cell.ColumnName || '')}</strong>
+                    <input type="${inputType}" disabled style="margin-top: 8px;" />
+                </td>
+            `;
+        });
+        html += '<td style="width: 80px;"></td>';
+        html += '</tr>';
+    });
+
+    html += `
+                </table>
+                <button type="button" class="table-add-row-btn" disabled>+ Add Row</button>
+            </div>
+        </div>
+    `;
+
+    return html;
 }
 
 async function saveDraft() {

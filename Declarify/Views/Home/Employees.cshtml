@@ -10,9 +10,39 @@
 <link rel="stylesheet" href="https://cdn.datatables.net/responsive/3.0.3/css/responsive.bootstrap5.min.css" />
 <link href="~/css/managetemplate.css" rel="stylesheet" /> <!-- Reuse same CSS, or create manageemployees.css if needed -->
 <link href="~/css/admindashboardcss1.css" rel="stylesheet" />
+<style>
+
+    .back-button {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: #F8FAFC;
+        border: 2px solid #E2E8F0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #1E293B;
+        transition: all 0.3s ease;
+        text-decoration: none;
+    }
+
+        .back-button:hover {
+            background: #00C2CB;
+            border-color: #00C2CB;
+            color: white;
+            transform: translateX(-3px);
+        }
+
+</style>
+
 <div class="page-header">
     <div class="header-content">
         <h1 class="header-title">
+            <a href="@Url.Action("Index", "Home")" class="back-button">
+                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+            </a>
             <svg width="44" height="44" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
                 <circle cx="9" cy="7" r="4"></circle>
@@ -42,6 +72,7 @@
         </div>
 
         <div class="action-buttons-group">
+          
             <a href="@Url.Action("DownloadEmployeeTemplate")" class="btn-ghost">
                 <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                     <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>

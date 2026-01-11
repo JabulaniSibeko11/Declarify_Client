@@ -1130,13 +1130,494 @@ namespace Declarify.Controllers
         }
         // Process CSV import (FR 4.1.3)
 
+        // ============================================================================
+        // ADD THESE NEW METHODS TO YOUR CONTROLLER
+        // ============================================================================
+
+        /// <summary>
+        /// API endpoint to parse and validate Excel file before import
+        /// Returns employee count, departments, and validation errors
+        /// </summary>
+       // [HttpPost("employees/validate-excel")]
+        public async Task<IActionResult> ValidateExcelFile(IFormFile excelFile)
+        {
+            try
+            {
+                if (excelFile == null || excelFile.Length == 0)
+                {
+                    return Json(new { success = false, message = "No file uploaded" });
+                }
+
+                var extension = Path.GetExtension(excelFile.FileName).ToLowerInvariant();
+                if (extension != ".xlsx" && extension != ".xls")
+                {
+                    return Json(new { success = false, message = "Invalid file format. Please upload .xlsx or .xls file" });
+                }
+
+                // Check company data for domain validation
+                var companyData = await _centralHub.GetCompanyInformation();
+                if (companyData == null || companyData.CompanyName == "Unknown Company")
+                {
+                    return Json(new { success = false, message = "Cannot verify company data. Please try again later." });
+                }
+
+                var employees = new List<EmployeeImportDto>();
+                var validationErrors = new List<ValidationError>();
+                var departments = new Dictionary<string, int>();
+
+                // Parse Excel file
+                using (var stream = new MemoryStream())
+                {
+                    await excelFile.CopyToAsync(stream);
+                    stream.Position = 0;
+
+                    ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+                    using var package = new ExcelPackage(stream);
+
+                    if (package.Workbook.Worksheets.Count == 0)
+                    {
+                        return Json(new { success = false, message = "Excel file contains no worksheets" });
+                    }
+
+                    var worksheet = package.Workbook.Worksheets[0];
+                    var rowCount = worksheet.Dimension?.Rows ?? 0;
+
+                    if (rowCount < 2)
+                    {
+                        return Json(new { success = false, message = "Excel file contains no data rows" });
+                    }
+
+                    // Parse each row
+                    for (int row = 2; row <= rowCount; row++)
+                    {
+                        // Skip empty rows
+                        if (string.IsNullOrWhiteSpace(worksheet.Cells[row, 1].Text))
+                            continue;
+
+                        var employeeNumber = worksheet.Cells[row, 1].Text.Trim();
+                        var fullName = worksheet.Cells[row, 2].Text.Trim();
+                        var email = worksheet.Cells[row, 3].Text.Trim();
+                        var position = worksheet.Cells[row, 4].Text.Trim();
+                        var department = worksheet.Cells[row, 5].Text.Trim();
+                        var managerNumber = worksheet.Cells[row, 6].Text.Trim();
+                        var region = worksheet.Cells[row, 7].Text.Trim();
+
+                        // Validate required fields
+                        if (string.IsNullOrWhiteSpace(employeeNumber))
+                        {
+                            validationErrors.Add(new ValidationError
+                            {
+                                Row = row,
+                                Field = "Employee Number",
+                                Message = "Employee Number is required"
+                            });
+                        }
+
+                        if (string.IsNullOrWhiteSpace(fullName))
+                        {
+                            validationErrors.Add(new ValidationError
+                            {
+                                Row = row,
+                                Field = "Full Name",
+                                Message = "Full Name is required"
+                            });
+                        }
+
+                        if (string.IsNullOrWhiteSpace(email))
+                        {
+                            validationErrors.Add(new ValidationError
+                            {
+                                Row = row,
+                                Field = "Email",
+                                Message = "Email is required"
+                            });
+                        }
+                        else
+                        {
+                            // Validate email format
+                            if (!IsValidEmail(email))
+                            {
+                                validationErrors.Add(new ValidationError
+                                {
+                                    Row = row,
+                                    Field = "Email",
+                                    Message = "Invalid email format"
+                                });
+                            }
+                            // Validate domain
+                            else if (!email.EndsWith(companyData.Domain, StringComparison.OrdinalIgnoreCase))
+                            {
+                                validationErrors.Add(new ValidationError
+                                {
+                                    Row = row,
+                                    Field = "Email",
+                                    Message = $"Email must end with {companyData.Domain}"
+                                });
+                            }
+                        }
+
+                        if (string.IsNullOrWhiteSpace(position))
+                        {
+                            validationErrors.Add(new ValidationError
+                            {
+                                Row = row,
+                                Field = "Position",
+                                Message = "Position is required"
+                            });
+                        }
+
+                        if (string.IsNullOrWhiteSpace(department))
+                        {
+                            validationErrors.Add(new ValidationError
+                            {
+                                Row = row,
+                                Field = "Department",
+                                Message = "Department is required"
+                            });
+                        }
+
+                        // Add to employees list
+                        employees.Add(new EmployeeImportDto
+                        {
+                            EmployeeNumber = employeeNumber,
+                            Full_Name = fullName,
+                            Email_Address = email,
+                            Position = position,
+                            Department = department,
+                            ManagerEmployeeNumber = managerNumber,
+                            Region = region
+                        });
+
+                        // Count departments
+                        if (!string.IsNullOrWhiteSpace(department))
+                        {
+                            if (departments.ContainsKey(department))
+                                departments[department]++;
+                            else
+                                departments[department] = 1;
+                        }
+                    }
+                }
+
+                // Check for duplicate employee numbers
+                var duplicateEmployeeNumbers = employees
+                    .GroupBy(e => e.EmployeeNumber)
+                    .Where(g => g.Count() > 1)
+                    .Select(g => g.Key)
+                    .ToList();
+
+                foreach (var duplicate in duplicateEmployeeNumbers)
+                {
+                    var rows = employees
+                        .Select((emp, idx) => new { emp, idx })
+                        .Where(x => x.emp.EmployeeNumber == duplicate)
+                        .Select(x => x.idx + 2)
+                        .ToList();
+
+                    foreach (var row in rows)
+                    {
+                        validationErrors.Add(new ValidationError
+                        {
+                            Row = row,
+                            Field = "Employee Number",
+                            Message = $"Duplicate employee number: {duplicate}"
+                        });
+                    }
+                }
+
+                // Check for duplicate emails
+                var duplicateEmails = employees
+                    .GroupBy(e => e.Email_Address)
+                    .Where(g => g.Count() > 1)
+                    .Select(g => g.Key)
+                    .ToList();
+
+                foreach (var duplicate in duplicateEmails)
+                {
+                    var rows = employees
+                        .Select((emp, idx) => new { emp, idx })
+                        .Where(x => x.emp.Email_Address == duplicate)
+                        .Select(x => x.idx + 2)
+                        .ToList();
+
+                    foreach (var row in rows)
+                    {
+                        validationErrors.Add(new ValidationError
+                        {
+                            Row = row,
+                            Field = "Email",
+                            Message = $"Duplicate email: {duplicate}"
+                        });
+                    }
+                }
+
+                // Return validation results
+                return Json(new
+                {
+                    success = true,
+                    totalEmployees = employees.Count,
+                    departments = departments,
+                    validRows = employees.Count - validationErrors.Select(e => e.Row).Distinct().Count(),
+                    errors = validationErrors,
+                    hasErrors = validationErrors.Any()
+                });
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = $"Error validating file: {ex.Message}" });
+            }
+        }
+
+        /// <summary>
+        /// Helper method to validate email format
+        /// </summary>
+        private bool IsValidEmail(string email)
+        {
+            try
+            {
+                var addr = new System.Net.Mail.MailAddress(email);
+                return addr.Address == email;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// DTO for validation errors
+        /// </summary>
+        public class ValidationError
+        {
+            public int Row { get; set; }
+            public string Field { get; set; }
+            public string Message { get; set; }
+        }
+
+        // ============================================================================
+        // UPDATED ImportEmployees METHOD - Now returns JSON for AJAX
+        // ============================================================================
+
+       // [HttpPost("employees/import")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ImportEmployees(IFormFile excelFile)
+        {
+            if (!await _LS.IsLicenseValidAsync())
+                return Json(new { success = false, message = "License expired" });
+
+            if (excelFile == null || excelFile.Length == 0)
+            {
+                return Json(new { success = false, message = "Please select an Excel file to upload." });
+            }
+
+            var extension = Path.GetExtension(excelFile.FileName).ToLowerInvariant();
+            if (extension != ".xlsx" && extension != ".xls")
+            {
+                return Json(new { success = false, message = "Please upload a valid Excel file (.xlsx or .xls)." });
+            }
+
+            // Check if email matches with domain
+            var companyData = await _centralHub.GetCompanyInformation();
+            if (companyData == null || companyData.CompanyName == "Unknown Company")
+            {
+                return Json(new { success = false, message = "Cannot verify company data — Company server unreachable. Please try again later." });
+            }
+
+            var employees = new List<EmployeeImportDto>();
+
+            // =======================
+            // READ EXCEL
+            // =======================
+            using (var stream = new MemoryStream())
+            {
+                await excelFile.CopyToAsync(stream);
+                stream.Position = 0;
+
+                ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+                using var package = new ExcelPackage(stream);
+                var worksheet = package.Workbook.Worksheets[0];
+                var rowCount = worksheet.Dimension.Rows;
+
+                for (int row = 2; row <= rowCount; row++)
+                {
+                    if (string.IsNullOrWhiteSpace(worksheet.Cells[row, 1].Text))
+                        continue;
+
+                    employees.Add(new EmployeeImportDto
+                    {
+                        EmployeeNumber = worksheet.Cells[row, 1].Text.Trim(),
+                        Full_Name = worksheet.Cells[row, 2].Text.Trim(),
+                        Email_Address = worksheet.Cells[row, 3].Text.Trim(),
+                        Position = worksheet.Cells[row, 4].Text.Trim(),
+                        Department = worksheet.Cells[row, 5].Text.Trim(),
+                        ManagerEmployeeNumber = worksheet.Cells[row, 6].Text.Trim(),
+                        Region = worksheet.Cells[row, 7].Text.Trim()
+                    });
+                }
+            }
+
+            if (!employees.Any())
+            {
+                return Json(new { success = false, message = "Excel file contains no valid data." });
+            }
+
+            var errors = new List<string>();
+            int created = 0, updated = 0, failed = 0;
+
+            // =======================
+            // FIRST PASS: CREATE / UPDATE EMPLOYEES
+            // =======================
+            foreach (var dto in employees)
+            {
+                try
+                {
+                    if (string.IsNullOrWhiteSpace(dto.EmployeeNumber) ||
+                        string.IsNullOrWhiteSpace(dto.Email_Address))
+                    {
+                        failed++;
+                        errors.Add("Missing EmployeeNumber or Email");
+                        continue;
+                    }
+
+                    if (!dto.Email_Address.EndsWith(companyData.Domain, StringComparison.OrdinalIgnoreCase))
+                    {
+                        failed++;
+                        errors.Add("Employee email is not part of the org domain");
+                        continue;
+                    }
+
+                    var employee = await _db.Employees.Include(e => e.ApplicationUser)
+                        .FirstOrDefaultAsync(e => e.EmployeeNumber == dto.EmployeeNumber);
+
+                    if (employee == null)
+                    {
+                        employee = new Employee
+                        {
+                            EmployeeNumber = dto.EmployeeNumber,
+                            Full_Name = dto.Full_Name,
+                            Email_Address = dto.Email_Address,
+                            Position = dto.Position,
+                            Department = dto.Department,
+                            Region = dto.Region,
+                            IsActive = true
+                        };
+                        _db.Employees.Add(employee);
+                        created++;
+                    }
+                    else
+                    {
+                        employee.Full_Name = dto.Full_Name;
+                        employee.Email_Address = dto.Email_Address;
+                        employee.Position = dto.Position;
+                        employee.Department = dto.Department;
+                        employee.Region = dto.Region;
+                        employee.IsActive = true;
+                        updated++;
+                    }
+
+                    await _db.SaveChangesAsync();
+
+                    // =======================
+                    // USER SYNC
+                    // =======================
+                    var user = await _userManager.FindByEmailAsync(dto.Email_Address);
+                    if (user == null)
+                    {
+                        user = new ApplicationUser
+                        {
+                            UserName = dto.Email_Address,
+                            Email = dto.Email_Address,
+                            EmailConfirmed = true,
+                            EmployeeId = employee.EmployeeId,
+                            Full_Name = dto.Full_Name,
+                            Position = dto.Position,
+                            Department = dto.Department,
+                            IsFirstLogin = true
+                        };
+                        await _userManager.CreateAsync(user);
+                    }
+
+                    employee.ApplicationUserId = user.Id;
+                    _db.Employees.Update(employee);
+                    await _db.SaveChangesAsync();
+                }
+                catch (Exception ex)
+                {
+                    failed++;
+                    errors.Add($"Failed employee {dto.EmployeeNumber}: {ex.Message}");
+                }
+            }
+
+            // =======================
+            // SECOND PASS: ASSIGN MANAGERS
+            // =======================
+            foreach (var dto in employees)
+            {
+                if (!dto.Email_Address.EndsWith(companyData.Domain, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (string.IsNullOrWhiteSpace(dto.ManagerEmployeeNumber))
+                    continue;
+
+                var employee = await _db.Employees
+                    .FirstOrDefaultAsync(e => e.EmployeeNumber == dto.EmployeeNumber);
+
+                var manager = await _db.Employees
+                    .FirstOrDefaultAsync(e => e.EmployeeNumber == dto.ManagerEmployeeNumber);
+
+                if (employee == null || manager == null)
+                {
+                    errors.Add($"Manager not found for {dto.EmployeeNumber}");
+                    continue;
+                }
+
+                employee.ManagerId = manager.EmployeeId;
+                _db.Employees.Update(employee);
+            }
+
+            await _db.SaveChangesAsync();
+
+            // Return JSON response
+            return Json(new
+            {
+                success = true,
+                message = $"Import complete: {created} created, {updated} updated, {failed} failed",
+                successCount = created + updated,
+                errorCount = failed,
+                created = created,
+                updated = updated,
+                failed = failed,
+                errors = errors
+            });
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> ToggleEmployeeActive(int employeeId)
+        {
+            var employee = await _db.Employees.FindAsync(employeeId);
+
+            if (employee == null)
+                return Json(new { success = false });
+
+            employee.IsActive = !employee.IsActive;
+
+            await _db.SaveChangesAsync();
+
+            return Json(new
+            {
+                success = true,
+                isActive = employee.IsActive
+            });
+        }
 
 
 
         // 2. Update the ImportEmployees method - Excel parsing section
-        [HttpPost("employees/import")]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> ImportEmployees(IFormFile excelFile)
+        //[HttpPost("employees/import")]
+        //[ValidateAntiForgeryToken]
+        public async Task<IActionResult> ImportEmployees1(IFormFile excelFile)
         {
             if (!await _LS.IsLicenseValidAsync())
                 return RedirectToAction("LicenseExpired");

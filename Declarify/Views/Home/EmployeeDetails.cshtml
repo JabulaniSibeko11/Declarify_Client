@@ -14,7 +14,108 @@
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     @* <link href="~/css/admindashboardcss.css" rel="stylesheet" /> *@
     <link href="~/css/employeedetailscss.css" rel="stylesheet" />
-   
+   <style>
+        .modal-backdrop.show {
+            backdrop-filter: blur(6px);
+            background-color: rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-custom {
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+
+        .modal-header.modal-danger {
+            background-color: #fee2e2; /* light red */
+            color: #b91c1c; /* dark red text */
+        }
+/* Status badge styling */
+.status-badge.success {
+    background: rgba(16, 185, 129, 0.15);
+    color: #059669;
+    padding: 0.25rem 0.75rem;
+    border-radius: 50px;
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+      .status-badge.danger {
+    background: rgba(239, 68, 68, 0.15);
+    color: #DC2626;
+    padding: 0.25rem 0.75rem;
+    border-radius: 50px;
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+        
+
+            .modal-form .status-badge.success {
+                background: rgba(16, 185, 129, 0.15);
+                color: #059669;
+            }
+
+            .modal-form .status-badge.danger {
+                background: rgba(239, 68, 68, 0.15);
+                color: #DC2626;
+            }
+
+        /* Modal Paragraph Styling */
+        .modal-form p {
+            font-size: 1rem;
+            color: var(--color-text-main);
+            margin-bottom: 1rem;
+        }
+
+        /* Adjust modal width for status content */
+        .modal-container {
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        .employee-card.inactive {
+            opacity: 0.5;
+            filter: grayscale(0.6);
+        }
+
+        .status-badge.active {
+            background: rgba(16, 185, 129, 0.15);
+            color: #059669;
+        }
+
+        .status-badge.inactive {
+            background: rgba(239, 68, 68, 0.15);
+            color: #DC2626;
+        }
+
+   </style>
+    <style>
+
+        .back-button {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #F8FAFC;
+            border: 2px solid #E2E8F0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #1E293B;
+            transition: all 0.3s ease;
+            text-decoration: none;
+        }
+
+            .back-button:hover {
+                background: #00C2CB;
+                border-color: #00C2CB;
+                color: white;
+                transform: translateX(-3px);
+            }
+
+    </style>
+
 </head>
 <body>
     <!-- Header -->
@@ -39,6 +140,7 @@
     </header>
 
     <main>
+        @Html.AntiForgeryToken()
         <!-- Profile Hero -->
         <div class="profile-hero">
             <div class="hero-content">
@@ -79,18 +181,24 @@
                 </div>
 
                 <div class="hero-actions">
+                    <a href="@Url.Action("Employees", "Home")" class="back-button">
+                        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                        </svg>
+                    </a>
                     <button class="btn btn-primary" onclick="location.href='@Url.Action("BulkRequest", "Home", new { employeeIds = new int[] { Model.Employee.EmployeeId } })'">
                         <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                             <path d="M12 4v16m8-8H4" />
                         </svg>
                         Assign New DOI
                     </button>
-                    <button class="btn btn-secondary">
-                        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                            <path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
-                        Edit Profile
+                    <button class="btn btn-secondary"
+                            data-bs-toggle="modal"
+                            data-bs-target="#statusModal">
+                        @(Model.Employee.IsActive ? "Deactivate" : "Activate")
                     </button>
+
+
                     <button class="btn btn-ghost">
                         <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                             <path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
@@ -279,5 +387,69 @@
             }
         </div>
     </main>
+
+    <div class="modal fade" id="statusModal" tabindex="-1" aria-labelledby="statusModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content modal-custom">
+                <div class="modal-header @(Model.Employee.IsActive ? "" : "modal-danger")">
+                    <h5 class="modal-title" id="statusModalLabel">
+                        @(Model.Employee.IsActive ? "Employee Active" : "Employee Inactive")
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>
+                        Employee <strong>@Model.Employee.Full_Name</strong> is currently
+                        <span class="status-badge @(Model.Employee.IsActive ? "success" : "danger")">
+                            @(Model.Employee.IsActive ? "Active" : "Inactive")
+                        </span>.
+                    </p>
+                    <p>You can update their status or perform other actions below.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" onclick="toggleStatus('@Model.Employee.EmployeeId')">
+                        @(Model.Employee.IsActive ? "Deactivate" : "Activate")
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+
+    <script>
+                function toggleStatus(employeeId) {
+            const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
+
+            fetch('@Url.Action("ToggleEmployeeActive", "Home")', {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded",
+                    "RequestVerificationToken": token
+                },
+                body: new URLSearchParams({
+                    employeeId: employeeId
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    // Hide modal after successful toggle
+                    var modalEl = document.getElementById('statusModal');
+                    var modal = bootstrap.Modal.getInstance(modalEl);
+                    modal.hide();
+
+                    // Reload page or update status badge dynamically
+                    location.reload();
+                }
+            })
+            .catch(err => console.error(err));
+        }
+
+
+    </script>
+
+
 </body>
 </html>
