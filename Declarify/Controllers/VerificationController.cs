@@ -40,7 +40,7 @@ namespace Declarify.Controllers
                 .Include(s => s.Task)
                     .ThenInclude(t => t.Template)
                 .Include(s => s.VerificationAttachments)
-                .Where(s => s.Status == "Pending" || s.Status == "Submitted")
+                .Where(s => s.Status == "Pending Verification")
                 .OrderByDescending(s => s.Submitted_Date)
                 .ToListAsync();
 
