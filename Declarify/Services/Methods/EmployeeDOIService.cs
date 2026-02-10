@@ -228,6 +228,7 @@ namespace Declarify.Services.Methods
 
             // === ALWAYS assign/update the manager details (both new and existing submissions) ===
             submission.AssignedManagerId = task.Employee.ManagerId;
+            submission.Status = "Submitted"; // Ensure status is set to Submitted on both new and existing records
 
             // If we don't have the manager name via navigation property, fetch it
             if (task.Employee.ManagerId != null)
@@ -255,6 +256,7 @@ namespace Declarify.Services.Methods
             // Always update task status and invalidate token
             task.Status = "Submitted";
             task.AccessToken = null; // Invalidate token (NFR 5.3.2)
+
 
             await _db.SaveChangesAsync();
 
