@@ -14,6 +14,9 @@
         public string ReviewerPosition { get; set; }
         public string? DigitalAttestation { get; set; } // JSON containing employee's signature
 
+        public int TaskId { get; set; }
+        public string? TaskAccessToken { get; set; }
+
         public string ReviewerSignature { get; set; } = string.Empty; // ADDED: Base64 signature from Employee.Signature
 
         // New properties for admin's personal tasks

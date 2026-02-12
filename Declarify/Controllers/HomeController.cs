@@ -1,13 +1,4 @@
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Diagnostics;
-using System.Drawing;
-using System.Globalization;
-using System.Security.Claims;
-using System.Security.Cryptography;
-using System.Text;
-using System.Text.Json;
-using Azure.Core;
+ï»¿using Azure.Core;
 using CsvHelper;
 using CsvHelper.Configuration;
 using Declarify.Data;
@@ -19,6 +10,7 @@ using Declarify.Services.Methods;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.CodeAnalysis.Elfie.Serialization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.VisualStudio.Web.CodeGenerators.Mvc.Templates.Blazor;
@@ -26,6 +18,15 @@ using Newtonsoft.Json;
 using OfficeOpenXml;
 using OfficeOpenXml.FormulaParsing.Excel.Functions.Database;
 using OfficeOpenXml.Style;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Diagnostics;
+using System.Drawing;
+using System.Globalization;
+using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
 using LicenseContext = OfficeOpenXml.LicenseContext;
 namespace Declarify.Controllers
 {
@@ -255,98 +256,7 @@ namespace Declarify.Controllers
             return View();
         }
 
-        //[HttpPost]
-        //[AllowAnonymous]
-        //[ValidateAntiForgeryToken]
-        public async Task<IActionResult> Login1(LoginViewModel model, string? returnUrl = null)
-        {
-            // Check license first (NFR 5.2.3)
-            if (!await _LS.IsLicenseValidAsync())
-            {
-                return View("LicenseExpired");
-            }
-            ViewData["ReturnUrl"] = returnUrl;
-
-            if (!ModelState.IsValid)
-            {
-                return View(model);
-            }
-            try
-            {
-                // Step 1: Find user by email (works for all roles: Admin, Manager, Employee, Executive)
-                var user = await _userManager.FindByEmailAsync(model.Email);
-
-                if (user == null)
-                {
-                    _logger.LogWarning("Login attempt with non-existent email: {Email}", model.Email);
-                    ModelState.AddModelError(string.Empty, "Invalid email or password.");
-                    return View(model);
-                }
-
-                // Step 2: CRITICAL — Check if user has NO password ? force InitialSetup (FR 4.1.1)
-                var hasPassword = await _userManager.HasPasswordAsync(user);
-                if (!hasPassword || user.IsFirstLogin)
-                {
-                    _logger.LogInformation("User {Email} requires initial password setup.", model.Email);
-
-                    // Generate a password reset token
-                    var token = await _userManager.GeneratePasswordResetTokenAsync(user);
-
-                    // Redirect to InitialSetup with token
-                    return RedirectToAction("InitialSetup", new
-                    {
-                        email = model.Email,
-                        token = token
-                    });
-                }
-
-                // Step 3: Attempt password login
-                var result = await _signInManager.PasswordSignInAsync(
-                    user,
-                    model.Password,
-                    model.RememberMe,
-                    lockoutOnFailure: true);
-
-                if (result.Succeeded)
-                {
-                    _logger.LogInformation("User {Email} ({Role}) logged in successfully.",
-                        model.Email, user.roleInCompany ?? "Unknown");
-
-                    TempData["Success"] = $"Welcome back, {user.Full_Name ?? user.Email}!";
-
-                    // Check for returnUrl first
-                    if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl))
-                    {
-                        return Redirect(returnUrl);
-                    }
-
-                    // Redirect based on role (FR 4.5.1, 4.5.2, 4.5.3)
-                    return RedirectToDashboardByRole(user);
-                }
-
-                if (result.RequiresTwoFactor)
-                {
-                    return RedirectToAction("LoginWith2fa", new { returnUrl, model.RememberMe });
-                }
-
-                if (result.IsLockedOut)
-                {
-                    _logger.LogWarning("User {Email} account locked out.", model.Email);
-                    return View("Lockout");
-                }
-
-                // If we get here: wrong password
-                _logger.LogWarning("Failed login attempt for {Email}.", model.Email);
-                ModelState.AddModelError(string.Empty, "Invalid email or password.");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error during login for {Email}", model.Email);
-                ModelState.AddModelError(string.Empty, "An error occurred during login. Please try again.");
-            }
-            return View(model);
-        }
-
+       
 
         [HttpPost]
         [AllowAnonymous]
@@ -404,7 +314,7 @@ namespace Declarify.Controllers
                     // Option A: If ApplicationUser has EmployeeId property (recommended)
                     // if (user.EmployeeId.HasValue) { ... }
 
-                    // Option B: Most common — query Employee by ApplicationUserId
+                    // Option B: Most common â€” query Employee by ApplicationUserId
                     employee = await _db.Employees
                         .FirstOrDefaultAsync(e => e.ApplicationUserId == user.Id && e.IsActive);
 
@@ -412,7 +322,7 @@ namespace Declarify.Controllers
                     if (employee == null)
                     {
                         _logger.LogWarning("Logged in user {Email} has no linked active Employee record.", model.Email);
-                        // You could still proceed, or force setup — your choice
+                        // You could still proceed, or force setup â€” your choice
                         // For now, proceed without EmployeeId (dashboard may fail gracefully later)
                     }
 
@@ -440,7 +350,7 @@ namespace Declarify.Controllers
                     else
                     {
                         // Normal sign-in if no extra claims
-                        // (But we already signed in above — this block only if you skip claims)
+                        // (But we already signed in above â€” this block only if you skip claims)
                     }
 
                     _logger.LogInformation("User {Email} logged in successfully. EmployeeId: {Id}",
@@ -490,6 +400,17 @@ namespace Declarify.Controllers
                 return RedirectToAction("Login");
             }
 
+            string decodedToken;
+            try
+            {
+                decodedToken = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(token));
+            }
+            catch
+            {
+                TempData["Error"] = "Invalid password setup token.";
+                return RedirectToAction("Login");
+            }
+
             var user = await _userManager.FindByEmailAsync(email);
             if (user == null)
             {
@@ -500,7 +421,7 @@ namespace Declarify.Controllers
             var model = new InitialPasswordSetupViewModel
             {
                 Email = email,
-                Token = token,
+                Token = decodedToken,          // âœ… store decoded token
                 FullName = user.Full_Name ?? "User"
             };
 
@@ -571,9 +492,13 @@ namespace Declarify.Controllers
 
 
             }
-            catch (Exception ex) {
-
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "InitialSetup failed for {Email}", model.Email);
+                ModelState.AddModelError(string.Empty, "Something went wrong while setting up your account. Please try again.");
+                return View(model);
             }
+
             return View(model);
         }
 
@@ -629,13 +554,13 @@ namespace Declarify.Controllers
                 var creditBalanceResult = await _centralHub.CheckCreditBalance();
                 if (creditBalanceResult == null || !creditBalanceResult.hasCredits)
                 {
-                    TempData["ErrorCheckCredits"] = creditBalanceResult == null ? "Cannot verify credits — license server unreachable. Please try again later." : "";
+                    TempData["ErrorCheckCredits"] = creditBalanceResult == null ? "Cannot verify credits â€” license server unreachable. Please try again later." : "";
                 }
 
                 var companyData = await _centralHub.GetCompanyInformation();
                 if (companyData == null || companyData.CompanyName == "Unknown Company")
                 {
-                    TempData["Error"] = "Cannot verify company data — Company server unreachable. Please try again later.";
+                    TempData["Error"] = "Cannot verify company data â€” Company server unreachable. Please try again later.";
                 }
 
 
@@ -682,6 +607,11 @@ namespace Declarify.Controllers
 
                     // Department Breakdown (FR 4.5.3)
                     DepartmentBreakdown = dashboardData.DepartmentBreakdown,
+
+                    AwaitingReviewCount = dashboardData.AwaitingReviewCount,
+                    AmendmentRequiredCount = dashboardData.AmendmentRequiredCount,
+                    RevisionRequiredCount = dashboardData.RevisionRequiredCount,
+                    PendingVerificationCount = dashboardData.PendingVerificationCount,
 
                     //// Credit Information
                     CreditBalance = creditBalanceResult?.currentBalance ?? 0,
@@ -922,7 +852,7 @@ namespace Declarify.Controllers
             CreditCheckResponse? creditCheck = await _centralHub.CheckCreditBalance();
             if (creditCheck == null)
             {
-                throw new Exception("Cannot verify credits — license server unreachable.");
+                throw new Exception("Cannot verify credits â€” license server unreachable.");
             }
 
             if (!creditCheck.hasCredits || creditCheck.currentBalance < employeeCount)
@@ -943,7 +873,7 @@ namespace Declarify.Controllers
             var consumeResult = await _centralHub.ConsumeCredits(employeeCount, $"DOI Task Creation - Template {templateId}, Due {dueDate:yyyy-MM-dd}, Employees: {string.Join(",", employeeIds)}");
             if (!consumeResult.Success)
             {
-                throw new Exception("Failed to create Task for Employees — insufficient credits or server error");
+                throw new Exception("Failed to create Task for Employees â€” insufficient credits or server error");
             }
 
             foreach (var employeeId in employeeIds)
@@ -1423,7 +1353,7 @@ namespace Declarify.Controllers
             var companyData = await _centralHub.GetCompanyInformation();
             if (companyData == null || companyData.CompanyName == "Unknown Company")
             {
-                return Json(new { success = false, message = "Cannot verify company data — Company server unreachable. Please try again later." });
+                return Json(new { success = false, message = "Cannot verify company data â€” Company server unreachable. Please try again later." });
             }
 
             var employees = new List<EmployeeImportDto>();
@@ -1642,7 +1572,7 @@ namespace Declarify.Controllers
             var companyData = await _centralHub.GetCompanyInformation();
             if (companyData == null || companyData.CompanyName == "Unknown Company")
             {
-                TempData["Error"] =  "Cannot verify company data — Company server unreachable. Please try again later.";
+                TempData["Error"] =  "Cannot verify company data â€” Company server unreachable. Please try again later.";
                 return RedirectToAction("ImportEmployees");
             }
 
@@ -1864,19 +1794,19 @@ namespace Declarify.Controllers
             instr.Cells[1, 1].Style.Font.Size = 14;
 
             instr.Cells[3, 1].Value = "Columns:";
-            instr.Cells[4, 1].Value = "• EmployeeNumber (required, unique)";
-            instr.Cells[5, 1].Value = "• Full_Name (required)";
-            instr.Cells[6, 1].Value = "• Email_Address (required, unique)";
-            instr.Cells[7, 1].Value = "• Position";
-            instr.Cells[8, 1].Value = "• Department";
-            instr.Cells[9, 1].Value = "• ManagerEmployeeNumber – Employee Number of manager (e.g., EMP001). Leave blank for top-level employees.";
-            instr.Cells[10, 1].Value = "• Region – e.g. Gauteng, Western Cape, KwaZulu-Natal...";
+            instr.Cells[4, 1].Value = "â€¢ EmployeeNumber (required, unique)";
+            instr.Cells[5, 1].Value = "â€¢ Full_Name (required)";
+            instr.Cells[6, 1].Value = "â€¢ Email_Address (required, unique)";
+            instr.Cells[7, 1].Value = "â€¢ Position";
+            instr.Cells[8, 1].Value = "â€¢ Department";
+            instr.Cells[9, 1].Value = "â€¢ ManagerEmployeeNumber â€“ Employee Number of manager (e.g., EMP001). Leave blank for top-level employees.";
+            instr.Cells[10, 1].Value = "â€¢ Region â€“ e.g. Gauteng, Western Cape, KwaZulu-Natal...";
 
             instr.Cells[12, 1].Value = "Notes:";
             instr.Cells[12, 1].Style.Font.Bold = true;
-            instr.Cells[13, 1].Value = "• Ensure all managers are included in the import file before their subordinates";
-            instr.Cells[14, 1].Value = "• The ManagerEmployeeNumber must match an existing or imported EmployeeNumber";
-            instr.Cells[15, 1].Value = "• You can import employees in any order - manager assignments happen in a second pass";
+            instr.Cells[13, 1].Value = "â€¢ Ensure all managers are included in the import file before their subordinates";
+            instr.Cells[14, 1].Value = "â€¢ The ManagerEmployeeNumber must match an existing or imported EmployeeNumber";
+            instr.Cells[15, 1].Value = "â€¢ You can import employees in any order - manager assignments happen in a second pass";
 
             instr.Cells.AutoFitColumns();
 
@@ -2010,7 +1940,7 @@ namespace Declarify.Controllers
                 var companyData = await _centralHub.GetCompanyInformation();
                 if (companyData == null || companyData.CompanyName == "Unknown Company")
                 {
-                    throw new Exception("Cannot verify company data — Company server unreachable. Please try again later.");
+                    throw new Exception("Cannot verify company data â€” Company server unreachable. Please try again later.");
                 }
 
                 if (!model.Email.EndsWith(companyData.Domain, StringComparison.OrdinalIgnoreCase)) throw new Exception("Employee email is not part of the company");
@@ -2254,7 +2184,7 @@ namespace Declarify.Controllers
                                         string.Join(", ", field.Columns.Select(c => $"{c.Name} ({c.Type})"))
                                     );
                                     _logger.LogInformation(
-                                        "   ?? Grid: {Rows} rows × {Cols} columns",
+                                        "   ?? Grid: {Rows} rows Ã— {Cols} columns",
                                         field.Rows ?? 0,
                                         field.GridColumns ?? 0
                                     );
@@ -2583,7 +2513,7 @@ namespace Declarify.Controllers
                 var creditBalanceResult = await _centralHub.CheckCreditBalance();
                 if (creditBalanceResult == null || !creditBalanceResult.hasCredits)
                 {
-                    TempData["ErrorCheckCredits"] = creditBalanceResult == null ? "Cannot verify credits — license server unreachable. Please try again later." : "";
+                    TempData["ErrorCheckCredits"] = creditBalanceResult == null ? "Cannot verify credits â€” license server unreachable. Please try again later." : "";
                 }
 
                 var creditRequestResult = await _centralHub.CollectCreditRequests();

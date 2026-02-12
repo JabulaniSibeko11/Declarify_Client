@@ -183,6 +183,16 @@ namespace Declarify.Models
         public int ReviewedCount { get; set; }
         public int NonCompliantCount { get; set; }
         public double CompliancePercentage { get; set; }
+
+       
+
+        // ✅ Add these for FR 4.3.1 completeness
+        public int AwaitingReviewCount { get; set; }           // Submitted but not reviewed
+        public int AmendmentRequiredCount { get; set; }         // tasks needing amendment
+        public int RevisionRequiredCount { get; set; }          // submissions rejected back
+        public int PendingVerificationCount { get; set; }       // submissions flagged
+    
+
         public Dictionary<string, DepartmentComplianceStats> DepartmentBreakdown { get; set; } = new();
     }
 

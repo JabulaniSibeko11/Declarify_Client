@@ -599,6 +599,27 @@
                 <span>Approve Declaration</span>
             </button>
 
+            <!-- Download submitted PDF -->
+            <a class="action-btn"
+               href="@Url.Action("DownloadDoiPdf", "Employee", new { token = Model.TaskAccessToken })"
+               style="background: white; border: 2px solid #10b981; color: #10b981; text-decoration: none;">
+                <svg class="btn-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M12 3v12m0 0l4-4m-4 4l-4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" />
+                </svg>
+                <span>Download PDF</span>
+            </a>
+
+            <!-- FR 4.2.5: Request Amendment -->
+            <button type="button" class="action-btn btn-reject" onclick="showAmendmentModal()">
+                <svg class="btn-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M16 8l-8 8m0 0H6m2 0v-2" />
+                </svg>
+                <span>Request Amendment</span>
+            </button>
+
+
             <button type="button" class="action-btn btn-reject" onclick="showRejectionModal()">
                 <svg class="btn-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -812,6 +833,57 @@
             </div>
         </div>
     </div>
+    <!-- Amendment Modal (FR 4.2.5) -->
+    <div class="modal-overlay" id="amendmentModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-header-content">
+                    <div class="modal-icon reject">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                        </svg>
+                    </div>
+                    <h2 class="modal-title">Request Amendment</h2>
+                    <p class="modal-subtitle">This will reopen the declaration for the employee to amend and resubmit.</p>
+                </div>
+            </div>
+
+            <div class="modal-body">
+                <div class="alert-box warning">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                    </svg>
+                    <div>
+                        <strong>Required:</strong> Provide a clear reason. The employee will see this reason when resubmitting.
+                    </div>
+                </div>
+
+                <form id="amendmentForm"
+                      method="post"
+                      action="@Url.Action("RequestAmendment", "Employee")">
+                    @Html.AntiForgeryToken()
+
+                    <input type="hidden" name="taskId" value="@Model.TaskId" />
+
+                    <label class="form-label required" for="amendmentReason">Amendment Reason</label>
+                    <textarea id="amendmentReason"
+                              name="reason"
+                              class="modal-textarea"
+                              placeholder="Explain what must be corrected/updated..."
+                              required></textarea>
+                </form>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn-modal btn-modal-cancel" onclick="closeModal('amendmentModal')">Cancel</button>
+                <button type="button" class="btn-modal btn-modal-confirm" style="background:#ef4444;color:white;" onclick="submitAmendment()">
+                    Send Amendment Request
+                </button>
+            </div>
+        </div>
+    </div>
 
     <!-- Loading Overlay -->
     <div class="loading-overlay" id="loadingOverlay">
@@ -976,6 +1048,20 @@
                 }
             });
         });
+
+                function showAmendmentModal() {
+            document.getElementById('amendmentModal').classList.add('active');
+        }
+
+        function submitAmendment() {
+            const reason = document.getElementById('amendmentReason').value.trim();
+            if (!reason) {
+                alert('Please provide an amendment reason.');
+                return;
+            }
+            document.getElementById('amendmentForm').submit();
+        }
+
     </script>
 </body>
 </html>

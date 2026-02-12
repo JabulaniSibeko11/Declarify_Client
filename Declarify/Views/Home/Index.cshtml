@@ -244,10 +244,9 @@
 
         <!-- Enhanced Stats Grid -->
         <div class="stats-grid">
+            <!-- Compliance Rate -->
             <div class="stat-card @(Model.CompliancePercentage >= Model.GoalComplianceRate ? "success" : "warning")">
-                <div class="stat-header">
-                    <div class="stat-icon">✓</div>
-                </div>
+                <div class="stat-header"><div class="stat-icon">✓</div></div>
                 <div class="stat-label">Compliance Rate</div>
                 <div class="stat-value">@Model.CompliancePercentage.ToString("F1")%</div>
                 <div class="stat-progress">
@@ -266,21 +265,39 @@
                 </p>
             </div>
 
+            <!-- Total Employees -->
             <div class="stat-card">
-                <div class="stat-header">
-                    <div class="stat-icon">👥</div>
-                </div>
+                <div class="stat-header"><div class="stat-icon">👥</div></div>
                 <div class="stat-label">Total Employees</div>
                 <div class="stat-value">@Model.TotalEmployees.ToString("N0")</div>
                 <p style="font-size: 0.875rem; color: var(--color-text-muted); margin-top: 0.75rem; font-weight: 600;">
-                    <span class="status-badge success">@Model.SubmittedCount Compliant</span>
+                    <span class="status-badge success">@Model.SubmittedCount Submitted</span>
                 </p>
             </div>
 
+            <!-- Total Tasks -->
+            <div class="stat-card">
+                <div class="stat-header"><div class="stat-icon">📌</div></div>
+                <div class="stat-label">Total Tasks</div>
+                <div class="stat-value">@Model.TotalTasks.ToString("N0")</div>
+                <p style="font-size: 0.875rem; color: var(--color-text-muted); margin-top: 0.75rem; font-weight: 600;">
+                    <span class="status-badge">@Model.OutstandingCount Outstanding</span>
+                </p>
+            </div>
+
+            <!-- Awaiting Review -->
+            <div class="stat-card @(Model.AwaitingReviewCount > 0 ? "warning" : "success")">
+                <div class="stat-header"><div class="stat-icon">🕒</div></div>
+                <div class="stat-label">Awaiting Review</div>
+                <div class="stat-value">@Model.AwaitingReviewCount</div>
+                <p style="font-size: 0.875rem; color: var(--color-text-muted); margin-top: 0.75rem; font-weight: 600;">
+                    <span>@(Model.AwaitingReviewCount > 0 ? "Managers need to review" : "All caught up")</span>
+                </p>
+            </div>
+
+            <!-- Overdue -->
             <div class="stat-card @(Model.OverdueCount > 0 ? "danger" : "success")">
-                <div class="stat-header">
-                    <div class="stat-icon">@(Model.OverdueCount > 0 ? "⚠" : "✓")</div>
-                </div>
+                <div class="stat-header"><div class="stat-icon">@(Model.OverdueCount > 0 ? "⚠" : "✓")</div></div>
                 <div class="stat-label">Overdue</div>
                 <div class="stat-value">@Model.OverdueCount</div>
                 <p style="font-size: 0.875rem; color: var(--color-text-muted); margin-top: 0.75rem; font-weight: 600;">
@@ -290,15 +307,35 @@
                     }
                     else
                     {
+
                         <span class="status-badge success">All on track!</span>
                     }
                 </p>
             </div>
 
+            <!-- Amendments Required -->
+            <div class="stat-card @(Model.AmendmentRequiredCount > 0 ? "warning" : "success")">
+                <div class="stat-header"><div class="stat-icon">📝</div></div>
+                <div class="stat-label">Amendments Required</div>
+                <div class="stat-value">@Model.AmendmentRequiredCount</div>
+                <p style="font-size: 0.875rem; color: var(--color-text-muted); margin-top: 0.75rem; font-weight: 600;">
+                    <span>@(Model.AmendmentRequiredCount > 0 ? "Employee resubmission pending" : "None pending")</span>
+                </p>
+            </div>
+
+            <!-- Pending Verification -->
+            <div class="stat-card @(Model.PendingVerificationCount > 0 ? "warning" : "success")">
+                <div class="stat-header"><div class="stat-icon">🔍</div></div>
+                <div class="stat-label">Pending Verification</div>
+                <div class="stat-value">@Model.PendingVerificationCount</div>
+                <p style="font-size: 0.875rem; color: var(--color-text-muted); margin-top: 0.75rem; font-weight: 600;">
+                    <span>@(Model.PendingVerificationCount > 0 ? "Admin action required" : "No verifications pending")</span>
+                </p>
+            </div>
+
+            <!-- Credits (keep, but not core FR 4.3.1) -->
             <div class="stat-card">
-                <div class="stat-header">
-                    <div class="stat-icon">💳</div>
-                </div>
+                <div class="stat-header"><div class="stat-icon">💳</div></div>
                 <div class="stat-label">Credit Balance</div>
                 <div class="stat-value">@Model.CreditBalance.ToString("N0")</div>
                 <p style="font-size: 0.875rem; color: var(--color-text-muted); margin-top: 0.75rem; font-weight: 600;">

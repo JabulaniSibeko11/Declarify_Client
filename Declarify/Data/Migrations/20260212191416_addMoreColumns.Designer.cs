@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Declarify.Data.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20251230130037_AddColumns")]
-    partial class AddColumns
+    [Migration("20260212191416_addMoreColumns")]
+    partial class addMoreColumns
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -236,6 +236,15 @@ namespace Declarify.Data.Migrations
                     b.Property<int?>("FormTaskTaskId")
                         .HasColumnType("int");
 
+                    b.Property<string>("PdfFileName")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PdfFilePath")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("PdfGeneratedUtc")
+                        .HasColumnType("datetime2");
+
                     b.Property<DateTime?>("ReviewedDate")
                         .HasColumnType("datetime2");
 
@@ -276,11 +285,23 @@ namespace Declarify.Data.Migrations
                     b.Property<string>("AccessToken")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("AmendmentReason")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("AmendmentRequestedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("AmendmentRequestedBy")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTime>("DueDate")
                         .HasColumnType("datetime2");
 
                     b.Property<int>("EmployeeId")
                         .HasColumnType("int");
+
+                    b.Property<bool>("IsAmendmentRequired")
+                        .HasColumnType("bit");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -461,6 +482,47 @@ namespace Declarify.Data.Migrations
                     b.HasIndex("SubmissionId");
 
                     b.ToTable("VerificationResults");
+                });
+
+            modelBuilder.Entity("Declarify.Models.ViewModels.DOIFormSubmission", b =>
+                {
+                    b.Property<int>("SubmissionId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("SubmissionId"));
+
+                    b.Property<int?>("AmendsSubmissionId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("AttestationSignature")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("FormData")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("SubmittedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("TaskId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("VersionNo")
+                        .HasColumnType("int");
+
+                    b.HasKey("SubmissionId");
+
+                    b.HasIndex("AmendsSubmissionId");
+
+                    b.ToTable("DOIFormSubmission");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>
@@ -682,6 +744,16 @@ namespace Declarify.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("Submission");
+                });
+
+            modelBuilder.Entity("Declarify.Models.ViewModels.DOIFormSubmission", b =>
+                {
+                    b.HasOne("Declarify.Models.ViewModels.DOIFormSubmission", "AmendsSubmission")
+                        .WithMany()
+                        .HasForeignKey("AmendsSubmissionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("AmendsSubmission");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>

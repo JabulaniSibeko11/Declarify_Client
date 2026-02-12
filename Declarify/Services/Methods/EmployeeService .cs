@@ -89,14 +89,10 @@ namespace Declarify.Services.Methods
         {
             // Validate uniqueness
             if (!await IsEmployeeNumberUniqueAsync(model.EmployeeNumber))
-            {
                 throw new InvalidOperationException($"Employee number {model.EmployeeNumber} already exists.");
-            }
 
             if (!await IsEmailUniqueAsync(model.Email))
-            {
                 throw new InvalidOperationException($"Email {model.Email} is already registered.");
-            }
 
             // Validate manager exists if provided
             if (model.ManagerId.HasValue)
@@ -105,53 +101,24 @@ namespace Declarify.Services.Methods
                     .AnyAsync(e => e.EmployeeId == model.ManagerId.Value && e.IsActive);
 
                 if (!managerExists)
-                {
                     throw new InvalidOperationException("Selected manager does not exist or is inactive.");
-                }
             }
 
             // Validate email domain if configured
             var configuredDomain = await GetConfiguredDomainAsync();
             if (!string.IsNullOrEmpty(configuredDomain) && !IsValidDomain(model.Email, configuredDomain))
-            {
                 throw new InvalidOperationException($"Email domain must match configured domain ({configuredDomain})");
-            }
 
-            using var transaction = await _db.Database.BeginTransactionAsync();
             try
             {
-                // Step 1: Create ApplicationUser
-                var applicationUser = new ApplicationUser
-                {
-                    UserName = model.Email,
-                    Email = model.Email,
-                    Full_Name = $"{model.Full_Name} {model.Surname_Name}",
-                    Position = model.Position,
-                    Department = model.Department,
-                    EmailConfirmed = true, // Auto-confirm for internal employees
-                    IsFirstLogin = true,
-                    roleInCompany = DetermineRoleInCompany(model.Position)
-                };
+                // ✅ NO Identity user creation
+                // ✅ NO temp password
+                // ✅ Just save Employee record
 
-                // Generate a temporary password (employee should change on first login)
-                //string tempPassword = GenerateTemporaryPassword();
-                var createUserResult = await _userManager.CreateAsync(applicationUser);
-
-                if (!createUserResult.Succeeded)
-                {
-                    var errors = string.Join(", ", createUserResult.Errors.Select(e => e.Description));
-                    throw new InvalidOperationException($"Failed to create user account: {errors}");
-                }
-
-                // Assign role based on position
-                string role = DetermineUserRole(model.Position);
-                await _userManager.AddToRoleAsync(applicationUser, role);
-
-                // Step 2: Create Employee record
                 var employee = new Employee
                 {
                     EmployeeNumber = model.EmployeeNumber,
-                    Full_Name = $"{model.Full_Name} {model.Surname_Name}",
+                    Full_Name = $"{model.Full_Name} {model.Surname_Name}".Trim(),
                     Email_Address = model.Email,
                     Position = model.Position,
                     Department = model.Department,
@@ -159,31 +126,23 @@ namespace Declarify.Services.Methods
                     Region = model.Region,
                     DomainId = model.DomainId,
                     IsActive = true,
-                    ApplicationUserId = applicationUser.Id
+
+                    // leave null because we are NOT creating an ApplicationUser
+                    ApplicationUserId = null
                 };
 
                 _db.Employees.Add(employee);
                 await _db.SaveChangesAsync();
 
-                // Step 3: Link ApplicationUser back to Employee
-                applicationUser.EmployeeId = employee.EmployeeId;
-                await _userManager.UpdateAsync(applicationUser);
-
-                await transaction.CommitAsync();
-
                 _logger.LogInformation(
-                    "Employee created successfully. EmployeeId: {EmployeeId}, Email: {Email}",
+                    "Employee created (DB only). EmployeeId: {EmployeeId}, Email: {Email}",
                     employee.EmployeeId, employee.Email_Address);
-
-                // TODO: Send welcome email with temporary password
-                // await _emailService.SendWelcomeEmailAsync(employee.Email_Address, tempPassword);
 
                 return employee;
             }
             catch (Exception ex)
             {
-                await transaction.RollbackAsync();
-                _logger.LogError(ex, "Error creating employee: {Email}", model.Email);
+                _logger.LogError(ex, "Error creating employee (DB only): {Email}", model.Email);
                 throw;
             }
         }

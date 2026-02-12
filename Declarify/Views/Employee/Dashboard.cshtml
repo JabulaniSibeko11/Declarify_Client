@@ -407,14 +407,25 @@
                             <div class="timeline-content">
                                 <div class="timeline-date">@task.DueDate.ToString("MMMM dd, yyyy")</div>
                                 <div class="timeline-title">@task.Template.TemplateName</div>
-                                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 12px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 12px; gap: 10px;">
                                     <span class="status-badge @(task.Status == "Reviewed" ? "success" : "outstanding")">
                                         @task.Status
                                     </span>
-                                    <button class="btn btn-ghost" style="padding: 8px 16px; font-size: 0.85rem;">
-                                        View Details
-                                    </button>
+
+                                    <div style="display:flex; gap:10px; align-items:center;">
+                                        <!-- ✅ Download PDF (only after submitted/reviewed) -->
+                                        <a class="btn btn-primary" style="padding: 8px 16px; font-size: 0.85rem;"
+                                           href="@Url.Action("DownloadDoiPdf", "Employee", new { token = task.AccessToken })">
+                                            ⬇ Download PDF
+                                        </a>
+
+                                        <!-- Existing action -->
+                                        <button class="btn btn-ghost" style="padding: 8px 16px; font-size: 0.85rem;">
+                                            View Details
+                                        </button>
+                                    </div>
                                 </div>
+
                             </div>
                         </div>
                     }

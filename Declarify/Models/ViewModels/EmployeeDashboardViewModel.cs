@@ -61,6 +61,10 @@
         public string EmployeeSignature { get; set; } = string.Empty;
         public string EmployeeName { get; set; } = string.Empty;
         public string EmployeeEmail { get; set; } = string.Empty;
+
+        public bool AmendmentRequired { get; set; }
+        public string? AmendmentReason { get; set; }
+
     }
     public class SaveDraftRequest
     {

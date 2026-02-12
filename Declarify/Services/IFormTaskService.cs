@@ -32,6 +32,8 @@ namespace Declarify.Services
         Task<List<FormTask>> GetTasksDueInRangeAsync(DateTime StateDate ,DateTime EndDate);
         Task<ComplianceDashboardData> GetComplianceDashboardDataAsync();
         // New: Department breakdown (uncomment and add this)
+
+        Task UpdateOverdueTasksAsync();
         Task<Dictionary<string, DepartmentComplianceStats>> GetDepartmentBreakdownAsync();
         //Task<Dictionary<string, ComplianceBreakdown>> GetDepartmentBreakdownAsync();
     }

@@ -1,502 +1,293 @@
-﻿using System.Net;
+﻿using Declarify.Services.Email;
+using Microsoft.Extensions.Options;
+using System.Net;
 using System.Net.Mail;
 
 namespace Declarify.Services.Methods
 {
-    // ============================================================================
-    // EMAIL SERVICE IMPLEMENTATION
-    // Handles all email communications (FR 4.3.3, FR 4.3.4)
-    // ============================================================================
-
-    public class EmailService : IEmailService
+    public sealed class EmailService : IEmailService
     {
         private readonly ILogger<EmailService> _logger;
-        private readonly IConfiguration _configuration;
-        private readonly SmtpClient _smtpClient;
+        private readonly EmailOptions _opt;
 
-        public EmailService(ILogger<EmailService> logger, IConfiguration configuration)
+        public EmailService(ILogger<EmailService> logger, IOptions<EmailOptions> opt)
         {
             _logger = logger;
-            _configuration = configuration;
-
-            // Configure SMTP client from appsettings
-            var smtpHost = _configuration["Email:SmtpHost"] ?? "localhost";
-            var smtpPort = int.Parse(_configuration["Email:SmtpPort"] ?? "587");
-            var enableSsl = bool.Parse(_configuration["Email:EnableSsl"] ?? "true");
-            var username = _configuration["Email:Username"];
-            var password = _configuration["Email:Password"];
-
-            _smtpClient = new SmtpClient(smtpHost, smtpPort)
-            {
-                EnableSsl = enableSsl,
-                Credentials = new NetworkCredential(username, password)
-            };
+            _opt = opt.Value;
         }
-        // Send magic link email to employee (FR 4.3.3)
-        // CRITICAL: This is sent after bulk task creation
+
+        // ============================================================
+        // Core send helper (TestMode + BCC + config-correct SMTP)
+        // ============================================================
+        private async Task SendAsync(
+            string toEmail,
+            string subject,
+            string htmlBody,
+            MailPriority priority = MailPriority.Normal,
+            CancellationToken ct = default)
+        {
+            if (string.IsNullOrWhiteSpace(_opt.Host))
+                throw new InvalidOperationException("Email:Host is not configured.");
+
+            if (string.IsNullOrWhiteSpace(_opt.FromAddress))
+                throw new InvalidOperationException("Email:FromAddress is not configured.");
+
+            if (string.IsNullOrWhiteSpace(toEmail))
+                throw new ArgumentException("Recipient email is required.", nameof(toEmail));
+
+            var actualTo = toEmail.Trim();
+            var testBanner = "";
+
+            if (_opt.TestMode)
+            {
+                if (string.IsNullOrWhiteSpace(_opt.TestToAddress))
+                    throw new InvalidOperationException("Email:TestMode is true but Email:TestToAddress is missing.");
+
+                testBanner =
+                    $"<div style='padding:10px;border:1px solid #f59e0b;background:#fff7ed;color:#7c2d12;margin-bottom:12px;'>" +
+                    $"<strong>TEST MODE:</strong> Original recipient: {WebUtility.HtmlEncode(actualTo)}" +
+                    $"</div>";
+
+                actualTo = _opt.TestToAddress.Trim();
+            }
+
+            using var msg = new MailMessage
+            {
+                From = new MailAddress(_opt.FromAddress, "Declarify"),
+                Subject = subject ?? "",
+                Body = testBanner + (htmlBody ?? ""),
+                IsBodyHtml = true,
+                Priority = priority
+            };
+
+            msg.To.Add(actualTo);
+
+            // ✅ NO BCC in TestMode
+            if (!_opt.TestMode)
+            {
+                AddBcc(msg, _opt.DefaultBcc);
+                AddBcc(msg, _opt.BccAddress);
+            }
+
+
+            using var smtp = new SmtpClient(_opt.Host, _opt.Port)
+            {
+                EnableSsl = _opt.EnableSsl,
+                DeliveryMethod = SmtpDeliveryMethod.Network,
+                Timeout = 15000
+            };
+
+            // Only apply credentials if provided
+            if (!string.IsNullOrWhiteSpace(_opt.Username))
+            {
+                smtp.UseDefaultCredentials = false;
+                smtp.Credentials = new NetworkCredential(_opt.Username, _opt.Password ?? "");
+            }
+            else
+            {
+                smtp.UseDefaultCredentials = true;
+            }
+
+            ct.ThrowIfCancellationRequested();
+            await smtp.SendMailAsync(msg);
+        }
+
+        private static void AddBcc(MailMessage msg, string? bcc)
+        {
+            if (string.IsNullOrWhiteSpace(bcc)) return;
+
+            foreach (var email in bcc.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                if (!string.IsNullOrWhiteSpace(email))
+                    msg.Bcc.Add(email);
+            }
+        }
+
+        // ============================================================
+        // Existing interface methods (kept as-is)
+        // ============================================================
 
         public async Task SendMagicLinkAsync(string email, string uniqueLink, string employeeName)
         {
             try
             {
-                var fromAddress = _configuration["Email:FromAddress"] ?? "noreply@declarify.local";
-                var fromName = _configuration["Email:FromName"] ?? "Declarify - Compliance & Disclosure Hub";
-
                 var subject = "Action Required: Complete Your Declaration of Interest";
 
                 var body = $@"
 <!DOCTYPE html>
 <html>
-<head>
-    <style>
-        body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
-        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-        .header {{ background-color: #0066cc; color: white; padding: 20px; text-align: center; }}
-        .content {{ padding: 20px; background-color: #f9f9f9; }}
-        .button {{ 
-            display: inline-block; 
-            padding: 12px 24px; 
-            background-color: #0066cc; 
-            color: white; 
-            text-decoration: none; 
-            border-radius: 4px; 
-            margin: 20px 0;
-        }}
-        .footer {{ padding: 20px; text-align: center; font-size: 12px; color: #666; }}
-        .important {{ background-color: #fff3cd; padding: 15px; border-left: 4px solid #ffc107; margin: 15px 0; }}
-    </style>
-</head>
-<body>
-    <div class=""container"">
-        <div class=""header"">
-            <h1>Declaration of Interest Required</h1>
-        </div>
-        <div class=""content"">
-            <p>Dear {employeeName},</p>
-            
-            <p>You are required to complete your annual Declaration of Interest (DOI) form. This is a mandatory requirement for all employees as per organizational policy.</p>
-            
-            <div class=""important"">
-                <strong>Important:</strong> Please complete this declaration by the due date to remain compliant.
-            </div>
-            
-            <p>To access your personalized declaration form, click the button below:</p>
-            
-            <p style=""text-align: center;"">
-                <a href=""{uniqueLink}"" class=""button"">Complete My Declaration</a>
-            </p>
-            
-            <p style=""font-size: 12px; color: #666;"">
-                Or copy and paste this link into your browser:<br>
-                {uniqueLink}
-            </p>
-            
-            <p><strong>What you'll need:</strong></p>
-            <ul>
-                <li>Details of any shares or financial interests</li>
-                <li>Directorship or partnership information</li>
-                <li>Gifts or hospitality received (value exceeding R500)</li>
-            </ul>
-            
-            <p>You can save your progress and return later using the same link. The form will auto-save your entries as you complete each section.</p>
-            
-            <p>If you have any questions or experience technical difficulties, please contact your Compliance Officer or HR department.</p>
-            
-            <p>Thank you for your cooperation in maintaining transparency and ethical standards.</p>
-        </div>
-        <div class=""footer"">
-            <p>This is an automated message from the Declarify Compliance & Disclosure Hub.</p>
-            <p>Please do not reply to this email.</p>
-        </div>
+<body style='font-family: Arial, sans-serif; line-height:1.6; color:#333;'>
+  <div style='max-width:600px;margin:0 auto;padding:20px;'>
+    <div style='background:#081B38;color:#fff;padding:18px;text-align:center;border-radius:10px 10px 0 0;'>
+      <h2 style='margin:0;'>Declaration of Interest Required</h2>
     </div>
+    <div style='background:#f9f9f9;padding:20px;border-radius:0 0 10px 10px;'>
+      <p>Dear {WebUtility.HtmlEncode(employeeName)},</p>
+
+      <p>You are required to complete your annual Declaration of Interest (DOI) form.</p>
+
+      <div style='background:#fff3cd;padding:12px;border-left:4px solid #00C2CB;margin:16px 0;'>
+        <strong>Important:</strong> Please complete this declaration by the due date to remain compliant.
+      </div>
+
+      <p style='text-align:center;margin:22px 0;'>
+        <a href='{uniqueLink}'
+           style='display:inline-block;padding:12px 22px;background:#00C2CB;color:#081B38;text-decoration:none;border-radius:8px;font-weight:700;'>
+           Complete My Declaration
+        </a>
+      </p>
+
+      <p style='font-size:12px;color:#666;'>If the button doesn’t work, copy and paste this link:<br/>{uniqueLink}</p>
+
+      <p>Thank you.</p>
+      <p style='font-size:12px;color:#666;'>This is an automated message. Please do not reply.</p>
+    </div>
+  </div>
 </body>
-</html>
-";
+</html>";
 
-                var mailMessage = new MailMessage
-                {
-                    From = new MailAddress(fromAddress, fromName),
-                    Subject = subject,
-                    Body = body,
-                    IsBodyHtml = true
-                };
-                mailMessage.To.Add(email);
-
-                await _smtpClient.SendMailAsync(mailMessage);
-                _logger.LogInformation($"Magic link email sent successfully to {email}");
+                await SendAsync(email, subject, body, MailPriority.Normal);
+                _logger.LogInformation("Magic link email queued to {Email}", email);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Failed to send magic link email to {email}");
+                _logger.LogError(ex, "Failed to send magic link email to {Email}", email);
                 throw;
             }
         }
-        // Send reminder email to employee (FR 4.3.4)
-        // Called 7 days before due date and on due date
+
         public async Task SendReminderAsync(string email, string employeeName, DateTime dueDate)
         {
             try
             {
-                var fromAddress = _configuration["Email:FromAddress"] ?? "noreply@declarify.local";
-                var fromName = _configuration["Email:FromName"] ?? "Declarify - Compliance & Disclosure Hub";
-
                 var daysUntilDue = (dueDate.Date - DateTime.UtcNow.Date).Days;
-                var urgencyLevel = daysUntilDue <= 0 ? "URGENT" : "REMINDER";
-                var urgencyColor = daysUntilDue <= 0 ? "#dc3545" : "#ffc107";
+                var urgent = daysUntilDue <= 0;
 
-                var subject = daysUntilDue <= 0
+                var subject = urgent
                     ? "URGENT: Declaration of Interest Overdue"
                     : $"REMINDER: Declaration of Interest Due in {daysUntilDue} Days";
 
                 var body = $@"
 <!DOCTYPE html>
 <html>
-<head>
-    <style>
-        body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
-        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-        .header {{ background-color: {urgencyColor}; color: white; padding: 20px; text-align: center; }}
-        .content {{ padding: 20px; background-color: #f9f9f9; }}
-        .button {{ 
-            display: inline-block; 
-            padding: 12px 24px; 
-            background-color: {urgencyColor}; 
-            color: white; 
-            text-decoration: none; 
-            border-radius: 4px; 
-            margin: 20px 0;
-        }}
-        .urgent-box {{ 
-            background-color: #f8d7da; 
-            border: 2px solid #dc3545; 
-            padding: 15px; 
-            margin: 15px 0; 
-            border-radius: 4px;
-        }}
-        .footer {{ padding: 20px; text-align: center; font-size: 12px; color: #666; }}
-    </style>
-</head>
-<body>
-    <div class=""container"">
-        <div class=""header"">
-            <h1>{urgencyLevel}: Declaration of Interest</h1>
-        </div>
-        <div class=""content"">
-            <p>Dear {employeeName},</p>
-            
-            {(daysUntilDue <= 0 ?
-                @"<div class=""urgent-box"">
-                    <strong>⚠️ OVERDUE NOTICE</strong><br>
-                    Your Declaration of Interest form is now overdue. Please complete it immediately to maintain compliance.
-                </div>" :
-                $@"<p><strong>This is a reminder that your Declaration of Interest form is due in {daysUntilDue} days.</strong></p>
-                   <p>Due Date: <strong>{dueDate:MMMM d, yyyy}</strong></p>"
-            )}
-            
-            <p>If you have already started your declaration, you can return to it using your unique link. If you haven't started yet, please do so as soon as possible.</p>
-            
-            <p style=""text-align: center;"">
-                <a href=""#"" class=""button"">Complete My Declaration Now</a>
-            </p>
-            
-            <p><strong>Why this is important:</strong></p>
-            <ul>
-                <li>Mandatory regulatory compliance requirement</li>
-                <li>Maintains transparency and ethical standards</li>
-                <li>Prevents potential conflicts of interest</li>
-                <li>Required for employment compliance status</li>
-            </ul>
-            
-            {(daysUntilDue <= 0 ?
-                "<p style=\"color: #dc3545;\"><strong>Please note:</strong> Failure to complete your DOI may result in escalation to management and potential compliance consequences.</p>" :
-                ""
-            )}
-            
-            <p>If you need assistance or have questions about completing the form, please contact your Compliance Officer or HR department immediately.</p>
-            
-            <p>Thank you for your prompt attention to this matter.</p>
-        </div>
-        <div class=""footer"">
-            <p>This is an automated reminder from the Declarify Compliance & Disclosure Hub.</p>
-            <p>Please do not reply to this email.</p>
-        </div>
+<body style='font-family: Arial, sans-serif; line-height:1.6; color:#333;'>
+  <div style='max-width:600px;margin:0 auto;padding:20px;'>
+    <div style='background:{(urgent ? "#dc3545" : "#081B38")};color:#fff;padding:18px;text-align:center;border-radius:10px 10px 0 0;'>
+      <h2 style='margin:0;'>{(urgent ? "Overdue Declaration" : "Declaration Reminder")}</h2>
     </div>
+    <div style='background:#f9f9f9;padding:20px;border-radius:0 0 10px 10px;'>
+      <p>Dear {WebUtility.HtmlEncode(employeeName)},</p>
+      <p>{(urgent ? "<strong>Your declaration is overdue.</strong> Please complete it immediately." : $"Your declaration is due on <strong>{dueDate:dd MMM yyyy}</strong>.")}</p>
+      <p style='font-size:12px;color:#666;'>This is an automated reminder. Please do not reply.</p>
+    </div>
+  </div>
 </body>
-</html>
-";
+</html>";
 
-                var mailMessage = new MailMessage
-                {
-                    From = new MailAddress(fromAddress, fromName),
-                    Subject = subject,
-                    Body = body,
-                    IsBodyHtml = true,
-                    Priority = daysUntilDue <= 0 ? MailPriority.High : MailPriority.Normal
-                };
-                mailMessage.To.Add(email);
-
-                await _smtpClient.SendMailAsync(mailMessage);
-                _logger.LogInformation($"Reminder email sent to {email} ({daysUntilDue} days until due)");
+                await SendAsync(email, subject, body, urgent ? MailPriority.High : MailPriority.Normal);
+                _logger.LogInformation("Reminder email queued to {Email}", email);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Failed to send reminder email to {email}");
+                _logger.LogError(ex, "Failed to send reminder email to {Email}", email);
                 throw;
             }
         }
-        // Send bulk completion notification to admin
-        // Called after bulk request is sent
+
         public async Task SendBulkCompleteNotificationAsync(string adminEmail, int totalSent)
         {
             try
             {
-                var fromAddress = _configuration["Email:FromAddress"] ?? "noreply@declarify.local";
-                var fromName = _configuration["Email:FromName"] ?? "Declarify - Compliance & Disclosure Hub";
-
                 var subject = $"Bulk DOI Request Completed - {totalSent} Employees Notified";
 
                 var body = $@"
 <!DOCTYPE html>
 <html>
-<head>
-    <style>
-        body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
-        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-        .header {{ background-color: #28a745; color: white; padding: 20px; text-align: center; }}
-        .content {{ padding: 20px; background-color: #f9f9f9; }}
-        .stats-box {{ 
-            background-color: #d4edda; 
-            border-left: 4px solid #28a745; 
-            padding: 15px; 
-            margin: 15px 0; 
-        }}
-        .footer {{ padding: 20px; text-align: center; font-size: 12px; color: #666; }}
-    </style>
-</head>
-<body>
-    <div class=""container"">
-        <div class=""header"">
-            <h1>✓ Bulk DOI Request Completed</h1>
-        </div>
-        <div class=""content"">
-            <p>Dear Administrator,</p>
-            
-            <p>Your bulk Declaration of Interest request has been successfully processed and distributed.</p>
-            
-            <div class=""stats-box"">
-                <h3>Request Summary</h3>
-                <p><strong>Total Employees Notified:</strong> {totalSent}</p>
-                <p><strong>Timestamp:</strong> {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss} UTC</p>
-            </div>
-            
-            <p>All employees have been sent unique access links to complete their declarations. The system will automatically track completion status and send reminders as configured.</p>
-            
-            <p><strong>Next Steps:</strong></p>
-            <ul>
-                <li>Monitor compliance dashboard for submission progress</li>
-                <li>Review submitted declarations as they come in</li>
-                <li>System will send automatic reminders 7 days before and on due date</li>
-                <li>Follow up with non-compliant employees after the due date</li>
-            </ul>
-            
-            <p>You can access the compliance dashboard at any time to view real-time statistics and drill down into department-level compliance.</p>
-            
-            <p>Thank you for using Declarify.</p>
-        </div>
-        <div class=""footer"">
-            <p>This is an automated notification from the Declarify Compliance & Disclosure Hub.</p>
-        </div>
+<body style='font-family: Arial, sans-serif; line-height:1.6; color:#333;'>
+  <div style='max-width:600px;margin:0 auto;padding:20px;'>
+    <div style='background:#081B38;color:#fff;padding:18px;text-align:center;border-radius:10px 10px 0 0;'>
+      <h2 style='margin:0;'>Bulk DOI Request Completed</h2>
     </div>
+    <div style='background:#f9f9f9;padding:20px;border-radius:0 0 10px 10px;'>
+      <p><strong>Total Employees Notified:</strong> {totalSent}</p>
+      <p><strong>Timestamp:</strong> {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss} UTC</p>
+    </div>
+  </div>
 </body>
-</html>
-";
+</html>";
 
-                var mailMessage = new MailMessage
-                {
-                    From = new MailAddress(fromAddress, fromName),
-                    Subject = subject,
-                    Body = body,
-                    IsBodyHtml = true
-                };
-                mailMessage.To.Add(adminEmail);
-
-                await _smtpClient.SendMailAsync(mailMessage);
-                _logger.LogInformation($"Bulk completion notification sent to admin: {adminEmail}");
+                await SendAsync(adminEmail, subject, body, MailPriority.Normal);
+                _logger.LogInformation("Bulk completion email queued to {Email}", adminEmail);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Failed to send bulk completion notification to {adminEmail}");
+                _logger.LogError(ex, "Failed to send bulk completion notification to {Email}", adminEmail);
                 throw;
             }
         }
-        // Send license expiry warning to admin
+
         public async Task SendLicenseExpiryWarningAsync(string adminEmail, DateTime expiryDate, int daysRemaining)
         {
             try
             {
-                var fromAddress = _configuration["Email:FromAddress"] ?? "noreply@declarify.local";
-                var fromName = _configuration["Email:FromName"] ?? "Declarify - Compliance & Disclosure Hub";
-
                 var subject = $"License Expiry Warning - {daysRemaining} Days Remaining";
 
                 var body = $@"
 <!DOCTYPE html>
 <html>
-<head>
-    <style>
-        body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
-        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-        .header {{ background-color: #ffc107; color: #000; padding: 20px; text-align: center; }}
-        .content {{ padding: 20px; background-color: #f9f9f9; }}
-        .warning-box {{ 
-            background-color: #fff3cd; 
-            border-left: 4px solid #ffc107; 
-            padding: 15px; 
-            margin: 15px 0; 
-        }}
-        .footer {{ padding: 20px; text-align: center; font-size: 12px; color: #666; }}
-    </style>
-</head>
-<body>
-    <div class=""container"">
-        <div class=""header"">
-            <h1>⚠️ License Expiry Warning</h1>
-        </div>
-        <div class=""content"">
-            <p>Dear Administrator,</p>
-            
-            <div class=""warning-box"">
-                <p><strong>Your Declarify license will expire in {daysRemaining} days.</strong></p>
-                <p>Expiry Date: <strong>{expiryDate:MMMM d, yyyy}</strong></p>
-            </div>
-            
-            <p>After the license expires, the system will block all viewing and submission functionality. Only the login and licensing screens will remain accessible.</p>
-            
-            <p><strong>Action Required:</strong></p>
-            <ul>
-                <li>Contact your vendor to renew your annual license</li>
-                <li>Ensure payment is processed before the expiry date</li>
-                <li>Allow 1-2 business days for license activation after payment</li>
-            </ul>
-            
-            <p>To avoid service interruption, we recommend renewing at least 5 business days before the expiry date.</p>
-            
-            <p>If you have any questions about renewal, please contact your Declarify vendor or support team.</p>
-        </div>
-        <div class=""footer"">
-            <p>This is an automated notification from the Declarify Compliance & Disclosure Hub.</p>
-        </div>
+<body style='font-family: Arial, sans-serif; line-height:1.6; color:#333;'>
+  <div style='max-width:600px;margin:0 auto;padding:20px;'>
+    <div style='background:#ffc107;color:#000;padding:18px;text-align:center;border-radius:10px 10px 0 0;'>
+      <h2 style='margin:0;'>License Expiry Warning</h2>
     </div>
+    <div style='background:#f9f9f9;padding:20px;border-radius:0 0 10px 10px;'>
+      <p>Expiry Date: <strong>{expiryDate:dd MMM yyyy}</strong></p>
+      <p>Days Remaining: <strong>{daysRemaining}</strong></p>
+    </div>
+  </div>
 </body>
-</html>
-";
+</html>";
 
-                var mailMessage = new MailMessage
-                {
-                    From = new MailAddress(fromAddress, fromName),
-                    Subject = subject,
-                    Body = body,
-                    IsBodyHtml = true,
-                    Priority = daysRemaining <= 7 ? MailPriority.High : MailPriority.Normal
-                };
-                mailMessage.To.Add(adminEmail);
-
-                await _smtpClient.SendMailAsync(mailMessage);
-                _logger.LogInformation($"License expiry warning sent to admin: {adminEmail}");
+                await SendAsync(adminEmail, subject, body, daysRemaining <= 7 ? MailPriority.High : MailPriority.Normal);
+                _logger.LogInformation("License expiry warning queued to {Email}", adminEmail);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Failed to send license expiry warning to {adminEmail}");
+                _logger.LogError(ex, "Failed to send license expiry warning to {Email}", adminEmail);
                 throw;
             }
         }
-        // Send credit low balance alert to admin
+
         public async Task SendCreditLowBalanceAlertAsync(string adminEmail, int remainingCredits, int threshold)
         {
             try
             {
-                var fromAddress = _configuration["Email:FromAddress"] ?? "noreply@declarify.local";
-                var fromName = _configuration["Email:FromName"] ?? "Declarify - Compliance & Disclosure Hub";
-
                 var subject = $"Credit Balance Alert - Only {remainingCredits} Credits Remaining";
 
                 var body = $@"
 <!DOCTYPE html>
 <html>
-<head>
-    <style>
-        body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
-        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-        .header {{ background-color: #dc3545; color: white; padding: 20px; text-align: center; }}
-        .content {{ padding: 20px; background-color: #f9f9f9; }}
-        .alert-box {{ 
-            background-color: #f8d7da; 
-            border-left: 4px solid #dc3545; 
-            padding: 15px; 
-            margin: 15px 0; 
-        }}
-        .footer {{ padding: 20px; text-align: center; font-size: 12px; color: #666; }}
-    </style>
-</head>
-<body>
-    <div class=""container"">
-        <div class=""header"">
-            <h1>🔔 Low Credit Balance Alert</h1>
-        </div>
-        <div class=""content"">
-            <p>Dear Administrator,</p>
-            
-            <div class=""alert-box"">
-                <p><strong>Your credit balance is running low.</strong></p>
-                <p>Current Balance: <strong>{remainingCredits} credits</strong></p>
-            </div>
-            
-            <p>Credits are consumed when:</p>
-            <ul>
-                <li>Employees submit DOI forms (1 credit per submission)</li>
-                <li>CIPC verification checks are performed (5 credits each)</li>
-                <li>Credit worthiness checks are performed (10 credits each)</li>
-            </ul>
-            
-            <p><strong>Important:</strong> When credits are exhausted, employees will not be able to submit their DOI forms, and you will not be able to perform verification checks.</p>
-            
-            <p><strong>Action Required:</strong></p>
-            <ul>
-                <li>Contact your vendor to purchase additional credits</li>
-                <li>Credits are loaded through the central hub application</li>
-                <li>Allow 1-2 hours for credit synchronization after purchase</li>
-            </ul>
-            
-            <p>We recommend maintaining a buffer of at least 50 credits to avoid service disruption during peak submission periods.</p>
-        </div>
-        <div class=""footer"">
-            <p>This is an automated notification from the Declarify Compliance & Disclosure Hub.</p>
-        </div>
+<body style='font-family: Arial, sans-serif; line-height:1.6; color:#333;'>
+  <div style='max-width:600px;margin:0 auto;padding:20px;'>
+    <div style='background:#dc3545;color:#fff;padding:18px;text-align:center;border-radius:10px 10px 0 0;'>
+      <h2 style='margin:0;'>Low Credit Balance Alert</h2>
     </div>
+    <div style='background:#f9f9f9;padding:20px;border-radius:0 0 10px 10px;'>
+      <p>Remaining Credits: <strong>{remainingCredits}</strong></p>
+      <p>Threshold: <strong>{threshold}</strong></p>
+    </div>
+  </div>
 </body>
-</html>
-";
+</html>";
 
-                var mailMessage = new MailMessage
-                {
-                    From = new MailAddress(fromAddress, fromName),
-                    Subject = subject,
-                    Body = body,
-                    IsBodyHtml = true,
-                    Priority = remainingCredits <= 10 ? MailPriority.High : MailPriority.Normal
-                };
-                mailMessage.To.Add(adminEmail);
-
-                await _smtpClient.SendMailAsync(mailMessage);
-                _logger.LogInformation($"Credit low balance alert sent to admin: {adminEmail}");
+                await SendAsync(adminEmail, subject, body, remainingCredits <= 10 ? MailPriority.High : MailPriority.Normal);
+                _logger.LogInformation("Credit alert queued to {Email}", adminEmail);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Failed to send credit alert to {adminEmail}");
+                _logger.LogError(ex, "Failed to send credit low balance alert to {Email}", adminEmail);
                 throw;
             }
         }
     }
 }
-
-

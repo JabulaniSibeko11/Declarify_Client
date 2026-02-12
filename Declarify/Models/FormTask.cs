@@ -26,6 +26,13 @@ namespace Declarify.Models
         public virtual Employee? Employee { get; set; }
         public virtual Template? Template { get; set; }
 
+
+        // ✅ Amendment / Resubmission (FR 4.2.5)
+        public bool IsAmendmentRequired { get; set; } = false;
+        public string? AmendmentReason { get; set; }
+        public DateTime? AmendmentRequestedAt { get; set; }
+        public string? AmendmentRequestedBy { get; set; } // name/email/role (simple)
+
         public virtual FormSubmission? FormSubmission { get; set; }
     }
 }

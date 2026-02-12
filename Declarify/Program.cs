@@ -3,7 +3,9 @@ using Declarify.Middleware;
 using Declarify.Models;
 using Declarify.Services;
 using Declarify.Services.API;
+using Declarify.Services.Email;
 using Declarify.Services.Methods;
+using Declarify.Services.PDF;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -16,6 +18,8 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 // DbContext
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(connectionString));
+
+
 
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
@@ -74,9 +78,12 @@ builder.Services.AddScoped<IReviewHelperService, ReviewHelperService>();
 builder.Services.AddHttpClient<CentralHubApiService>();
 builder.Services.AddScoped<CentralHubApiService>();
 
+builder.Services.Configure<DoiPdfOptions>(builder.Configuration.GetSection("DoiPdf"));
+builder.Services.AddScoped<IDoiPdfService, DoiPdfService>();
 //builder.Services.AddHttpClient<ICentralHubService, CentralHubApiService>();
 
-
+builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection("Email"));
+builder.Services.AddScoped<IEmailService, EmailService>();
 // MVC / Razor
 builder.Services.AddControllersWithViews();
 builder.Services.AddRazorPages();

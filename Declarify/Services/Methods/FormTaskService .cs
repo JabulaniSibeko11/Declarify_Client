@@ -356,6 +356,9 @@ namespace Declarify.Services.Methods
                 .Where(t => t.Status == "Outstanding" && t.DueDate < now)
                 .ToListAsync();
 
+            if (!overdueTasks.Any())
+                return;
+
             foreach (var task in overdueTasks)
             {
                 task.Status = "Overdue";
@@ -453,6 +456,7 @@ namespace Declarify.Services.Methods
             return new ComplianceDashboardData
             {
                 TotalEmployees = await GetTotalEmployeesAsync(),
+
                 TotalTasks = await _context.DOITasks.CountAsync(),
                 OutstandingCount = await GetOutstandingCountAsync(),
                 OverdueCount = await GetOverdueCountAsync(),
@@ -460,6 +464,12 @@ namespace Declarify.Services.Methods
                 ReviewedCount = await GetReviewedCountAsync(),
                 NonCompliantCount = await GetNonCompliantCountAsync(),
                 CompliancePercentage = await GetCompliancePercentageAsync(),
+
+                AwaitingReviewCount = await GetAwaitingReviewCountAsync(),
+                AmendmentRequiredCount = await GetAmendmentRequiredCountAsync(),
+                RevisionRequiredCount = await GetRevisionRequiredCountAsync(),
+                PendingVerificationCount = await GetPendingVerificationCountAsync(),
+
                 DepartmentBreakdown = await GetDepartmentBreakdownAsync()
             };
         }
@@ -634,6 +644,34 @@ namespace Declarify.Services.Methods
                 .Replace("/", "_")
                 .Replace("=", "");
         }
+        private Task<int> GetAwaitingReviewCountAsync()
+        {
+            // "Submitted" or "Pending" but NOT reviewed/approved yet
+            return _context.DOIFormSubmissions.CountAsync(s =>
+                (s.Status == "Submitted" || s.Status == "Pending") &&
+                s.ReviewedDate == null);
+        }
+
+        private Task<int> GetAmendmentRequiredCountAsync()
+        {
+            // You already set: task.Status = "AmendmentRequired" and task.IsAmendmentRequired = true
+            return _context.DOITasks.CountAsync(t =>
+                t.Status == "AmendmentRequired" || t.IsAmendmentRequired == true);
+        }
+
+        private Task<int> GetRevisionRequiredCountAsync()
+        {
+            // Your controller sets: submission.Status = "Revision Required"
+            return _context.DOIFormSubmissions.CountAsync(s => s.Status == "Revision Required");
+        }
+
+        private Task<int> GetPendingVerificationCountAsync()
+        {
+            // Your controller sets: submission.Status = "Pending Verification"
+            return _context.DOIFormSubmissions.CountAsync(s => s.Status == "Pending Verification");
+        }
+
+
     }
 
 }

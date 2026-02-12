@@ -18,12 +18,12 @@ namespace Declarify.Services.Methods
         private readonly IEmailService _emailService;
         private readonly IReviewerService _reviewerService;
         private readonly IHttpContextAccessor _httpContextAccessor;
-
+        private readonly IDoiPdfService _pdf;
         public EmployeeDOIService(
             ApplicationDbContext context,
             ILogger<EmployeeDOIService> logger,
             ICreditService creditService,
-            IEmailService emailService,IReviewerService reviewerService, IHttpContextAccessor httpContextAccessor)
+            IEmailService emailService,IReviewerService reviewerService, IHttpContextAccessor httpContextAccessor, IDoiPdfService pdf)
         {
             _db = context;
             _logger = logger;
@@ -31,6 +31,7 @@ namespace Declarify.Services.Methods
             _emailService = emailService;
             _reviewerService = reviewerService;
             _httpContextAccessor = httpContextAccessor;
+            _pdf = pdf;
         }
 
         #region Original Methods (FR 4.3.2, FR 4.4.1, FR 4.4.2, FR 4.4.3)
@@ -181,95 +182,117 @@ namespace Declarify.Services.Methods
             if (task == null)
                 return new SubmissionResult { Success = false, Message = "Invalid task token" };
 
-
-            // Check credits (FR 4.4.3)
-            //if (!await _creditService.HasSufficientCreditsAsync(1))
-            //{
-            //    return new SubmissionResult
-            //    {
-            //        Success = false,
-            //        Message = "Insufficient credits. Please contact your Admin."
-            //    };
-            //}
-
-            // Consume credit
-            //await _creditService.ConsumeCreditsAsync(1, "DOI Submission");
-
-
-            // Check if a submission already exists
-            bool submissionExists = await _db.DOIFormSubmissions
-                .AnyAsync(s => s.FormTaskId == task.TaskId);
-
-            FormSubmission submission;
-
-            if (!submissionExists)
+            // ✅ Only allow submit if Outstanding OR AmendmentRequired
+            if (task.Status != "Outstanding" && task.Status != "AmendmentRequired")
             {
-                // Create new submission
-                submission = new FormSubmission
+                return new SubmissionResult
                 {
-                    FormTaskId = task.TaskId,
-                    FormData = formData.RootElement.ToString(),
-                    Submitted_Date = DateTime.UtcNow,
-                    DigitalAttestation = attestationSignature,
-                    Status = "Submitted"
+                    Success = false,
+                    Message = $"This declaration cannot be submitted in its current status: {task.Status}"
                 };
-
-                _db.DOIFormSubmissions.Add(submission);
-                _logger.LogInformation("New DOI submission created for task {TaskId}", task.TaskId);
-            }
-            else
-            {
-                // Load existing submission so we can update it
-                submission = await _db.DOIFormSubmissions
-                    .FirstAsync(s => s.FormTaskId == task.TaskId);
-
-                _logger.LogInformation("Duplicate submission attempt for task {TaskId} - updating existing record", task.TaskId);
             }
 
-            // === ALWAYS assign/update the manager details (both new and existing submissions) ===
-            submission.AssignedManagerId = task.Employee.ManagerId;
-            submission.Status = "Submitted"; // Ensure status is set to Submitted on both new and existing records
+            // Load latest submission (for versioning + amendment linking)
+            var latestSubmission = await _db.DOIFormSubmissions
+                .Where(s => s.FormTaskId == task.TaskId)
+                .OrderByDescending(s => s.VersionNo)
+                .FirstOrDefaultAsync();
 
-            // If we don't have the manager name via navigation property, fetch it
-            if (task.Employee.ManagerId != null)
+            var nextVersion = (latestSubmission?.VersionNo ?? 0) + 1;
+
+            // ✅ If not amendment and already submitted before, block duplicates
+            // (so you don’t keep creating versions on repeated clicks)
+            if (task.Status != "AmendmentRequired" && latestSubmission != null && latestSubmission.Status == "Submitted")
             {
-                if (task.Employee.Manager?.Full_Name != null)
+                return new SubmissionResult
                 {
-                    submission.AssignedManagerName = task.Employee.Manager.Full_Name;
-                }
-                else
+                    Success = false,
+                    Message = "This declaration has already been submitted."
+                };
+            }
+
+            // ✅ Create a NEW submission record (never update old one)
+            var submission = new FormSubmission
+            {
+                FormTaskId = task.TaskId,
+                FormData = formData.RootElement.ToString(),
+                Submitted_Date = DateTime.UtcNow,
+                DigitalAttestation = attestationSignature,
+                Status = "Submitted",
+
+                // ✅ Versioning (FR 4.2.5)
+                VersionNo = nextVersion,
+
+                // ✅ Link back to previous submission if resubmission
+                AmendmentOfSubmissionId = task.Status == "AmendmentRequired"
+                    ? latestSubmission?.SubmissionId
+                    : null
+            };
+
+            // ✅ ALWAYS assign/update manager details
+            submission.AssignedManagerId = task.Employee?.ManagerId;
+
+            if (task.Employee?.ManagerId != null)
+            {
+                // if manager nav loaded, use it, otherwise query
+                var mgrName = task.Employee.Manager?.Full_Name;
+
+                if (string.IsNullOrWhiteSpace(mgrName))
                 {
-                    // Fallback: query the name if not already loaded
-                    var managerName = await _db.Employees
+                    mgrName = await _db.Employees
                         .Where(e => e.EmployeeId == task.Employee.ManagerId)
                         .Select(e => e.Full_Name)
                         .FirstOrDefaultAsync();
-
-                    submission.AssignedManagerName = managerName;
                 }
+
+                submission.AssignedManagerName = mgrName;
             }
             else
             {
                 submission.AssignedManagerName = null;
             }
 
-            // Always update task status and invalidate token
-            task.Status = "Submitted";
-            task.AccessToken = null; // Invalidate token (NFR 5.3.2)
+            _db.DOIFormSubmissions.Add(submission);
 
+            // ✅ Update task status
+            task.Status = "Submitted";
+
+            // ✅ Clear amendment flags after resubmission
+            task.IsAmendmentRequired = false;
+            task.AmendmentReason = null;
+            task.AmendmentRequestedAt = null;
+            task.AmendmentRequestedBy = null;
+
+            // ❌ DO NOT invalidate token here (needed for resubmission flow + downloads if token used)
+            // task.AccessToken = null;
 
             await _db.SaveChangesAsync();
 
-            _logger.LogInformation("DOI submitted/processed for task {TaskId}", task.TaskId);
+            // ✅ Generate PDF for THIS version
+            var (fileName, fullPath) = await _pdf.GenerateAndSaveAsync(submission, CancellationToken.None);
+
+            submission.PdfFileName = fileName;
+            submission.PdfFilePath = fullPath;
+            submission.PdfGeneratedUtc = DateTime.UtcNow;
+
+            await _db.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "DOI submitted for task {TaskId}. Version {VersionNo}. AmendmentOfSubmissionId {PrevId}",
+                task.TaskId,
+                submission.VersionNo,
+                submission.AmendmentOfSubmissionId
+            );
 
             return new SubmissionResult
             {
                 Success = true,
-                Message = submissionExists
-                    ? "Submission already processed (updated manager assignment)"
-                    : "Submission successful"
+                Message = submission.AmendmentOfSubmissionId != null
+                    ? "Amended submission sent successfully."
+                    : "Submission successful."
             };
         }
+
 
         // Sends automated reminders (FR 4.3.4)
         public async Task SendReminderEmailsAsync()

@@ -1,4 +1,5 @@
-﻿using Microsoft.Build.Framework;
+﻿using Declarify.Models.ViewModels;
+using Microsoft.Build.Framework;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -38,5 +39,18 @@ namespace Declarify.Models
 
         public virtual ICollection<VerificationAttachment> VerificationAttachments { get; set; }
             = new List<VerificationAttachment>();
+
+        public string? PdfFileName { get; set; }
+        public string? PdfFilePath { get; set; }
+        public DateTime? PdfGeneratedUtc { get; set; }
+
+        // ✅ Amendment / Resubmission (FR 4.2.5)
+        public int VersionNo { get; set; } = 1;
+
+       
+
+   
+        public int? AmendmentOfSubmissionId { get; set; }
+
     }
 }

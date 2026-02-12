@@ -17,6 +17,11 @@ namespace Declarify.Models.ViewModels
         public int NonCompliantCount { get; set; }
         public double CompliancePercentage { get; set; }
 
+        public int AwaitingReviewCount { get; set; }
+        public int AmendmentRequiredCount { get; set; }
+        public int RevisionRequiredCount { get; set; }
+        public int PendingVerificationCount { get; set; }
+
         // Department Breakdown
         public Dictionary<string, DepartmentComplianceStats> DepartmentBreakdown { get; set; } = new();
         // Credit Information
@@ -168,6 +173,13 @@ namespace Declarify.Models.ViewModels
         public string? AttestationSignature { get; set; }
         public DateTime UpdatedAt { get; set; }
         public string Status { get; set; } = "Draft";
+
+        // ✅ Amendment / Resubmission (FR 4.2.5)
+        public int VersionNo { get; set; } = 1;
+
+        // if this submission is an amendment of a previous one:
+        public int? AmendsSubmissionId { get; set; }
+        public DOIFormSubmission? AmendsSubmission { get; set; }
     }
 
     public class SubmissionResult
@@ -175,6 +187,7 @@ namespace Declarify.Models.ViewModels
         public bool Success { get; set; }
         public string Message { get; set; } = string.Empty;
     }
+
 
 
 }

@@ -1,4 +1,5 @@
 ﻿using Declarify.Models;
+using Declarify.Models.ViewModels;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.Build.Framework;
 using Microsoft.EntityFrameworkCore;
@@ -148,6 +149,19 @@ namespace Declarify.Data
             // Ensure SubmissionId is indexed for performance
             modelBuilder.Entity<VerificationAttachment>()
                 .HasIndex(v => v.SubmissionId);
+
+            modelBuilder.Entity<DOIFormSubmission>(entity =>
+            {
+                // ✅ Force primary key
+                entity.HasKey(x => x.SubmissionId);
+
+                // If you added self-reference:
+                entity.HasOne(x => x.AmendsSubmission)
+                      .WithMany()
+                      .HasForeignKey(x => x.AmendsSubmissionId)
+                      .OnDelete(DeleteBehavior.Restrict);
+            });
+
         }
     }
 }
