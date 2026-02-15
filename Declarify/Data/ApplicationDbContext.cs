@@ -89,6 +89,12 @@ namespace Declarify.Data
                       .WithOne()
                       .HasForeignKey<FormSubmission>(s => s.FormTaskId)
                       .OnDelete(DeleteBehavior.Cascade);
+
+                // ✅ Self-reference (Amendment)
+                entity.HasOne(s => s.AmendsSubmission)
+                      .WithMany()
+                      .HasForeignKey(s => s.AmendmentOfSubmissionId)
+                      .OnDelete(DeleteBehavior.Restrict);
             });
 
             // Credit
@@ -150,17 +156,7 @@ namespace Declarify.Data
             modelBuilder.Entity<VerificationAttachment>()
                 .HasIndex(v => v.SubmissionId);
 
-            modelBuilder.Entity<DOIFormSubmission>(entity =>
-            {
-                // ✅ Force primary key
-                entity.HasKey(x => x.SubmissionId);
-
-                // If you added self-reference:
-                entity.HasOne(x => x.AmendsSubmission)
-                      .WithMany()
-                      .HasForeignKey(x => x.AmendsSubmissionId)
-                      .OnDelete(DeleteBehavior.Restrict);
-            });
+            
 
         }
     }

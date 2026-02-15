@@ -26,9 +26,6 @@ namespace Declarify.Models
 
         public string? DigitalAttestation { get; set; } // e.g., JSON or string for declaration
 
-        // Navigation properties
-        public virtual FormTask? Task { get; set; }
-        public virtual ICollection<VerificationResult>? VerificationResults { get; set; }
 
         public int? AssignedManagerId { get; set; }   // New: who should review/approve this
         public string? AssignedManagerName { get; set; }  // Optional: for display purposes
@@ -37,8 +34,7 @@ namespace Declarify.Models
         public string? ReviewerSignature { get; set; } // New: digital signature of the reviewer
         public DateTime? ReviewedDate { get; set; } // New: when the review was completed
 
-        public virtual ICollection<VerificationAttachment> VerificationAttachments { get; set; }
-            = new List<VerificationAttachment>();
+     
 
         public string? PdfFileName { get; set; }
         public string? PdfFilePath { get; set; }
@@ -46,11 +42,15 @@ namespace Declarify.Models
 
         // ✅ Amendment / Resubmission (FR 4.2.5)
         public int VersionNo { get; set; } = 1;
-
-       
-
    
         public int? AmendmentOfSubmissionId { get; set; }
+        public virtual FormSubmission? AmendsSubmission { get; set; }
 
+        // Navigation properties
+        public virtual FormTask? Task { get; set; }
+        public virtual ICollection<VerificationResult>? VerificationResults { get; set; }
+
+        public virtual ICollection<VerificationAttachment> VerificationAttachments { get; set; }
+         = new List<VerificationAttachment>();
     }
 }

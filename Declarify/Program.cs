@@ -11,6 +11,9 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
+//Quest License
+QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+
 // Connection string
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");

@@ -83,7 +83,12 @@ namespace Declarify.Services.Methods
                         h.Item().Row(row =>
                         {
                             if (hasLogo)
-                                row.ConstantItem(150).Height(42).AlignMiddle().Image(logoPath);
+                                //row.ConstantItem(150).Height(42).AlignMiddle().Image(logoPath);
+                                row.ConstantItem(150)
+                                   .Height(42)
+                                   .AlignMiddle()
+                                   .Image(logoPath)
+                                   .FitHeight();
 
                             row.RelativeItem().AlignRight().AlignMiddle().Column(col =>
                             {

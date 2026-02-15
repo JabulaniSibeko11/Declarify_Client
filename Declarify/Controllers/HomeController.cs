@@ -119,7 +119,7 @@ namespace Declarify.Controllers
                 return Json(new { isValid = false, message = "Please enter a license key" });
             }
 
-            var ping = await _centralHub.PingAsync();
+            //var ping = await _centralHub.PingAsync();
             
 
             // Call activation api
